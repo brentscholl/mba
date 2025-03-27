@@ -1,0 +1,128 @@
+.introjs-helperLayer {
+
+  box-shadow: rgb(102 163 216 / 80%) 0px 0px 1px 2px, rgb(31 41 55 / 50%) 0px 0px 0px 5000px !important;
+}
+
+.introjs-tooltipReferenceLayer * {
+  font-family: inherit;
+}
+
+.introjs-tooltip {
+  font-family: inherit;
+  min-width: 400px;
+  max-width: 500px;
+  @apply shadow-lg rounded-md;
+}
+
+.introjs-skipbutton {
+  @apply text-gray-400;
+
+  &:hover {
+    @apply text-gray-500;
+  }
+}
+
+.introjs-tooltipbuttons {
+  @apply bg-gray-50 rounded-b-md;
+}
+
+.introjs-bullets ul li a {
+  @apply bg-gray-400;
+
+  &.active {
+    @apply bg-gray-500;
+  }
+}
+
+.introjs-button {
+  position: relative;
+  overflow: visible;
+  text-shadow: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  @apply p-transition inline-flex items-center px-2.5 py-1.5 space-x-1.5 border text-xs font-semibold uppercase tracking-widest rounded shadow-sm border-transparent text-white bg-primary-500;
+
+  &:focus {
+    @apply outline-none ring-2 ring-offset-2 ring-primary-500 ring-offset-gray-50 bg-primary-500 text-white border-primary-500;
+  }
+
+  &:hover {
+    color: #fff !important;
+    @apply bg-primary-700 border-primary-700;
+  }
+}
+
+.introjs-disabled {
+  @apply bg-gray-300;
+
+  &:hover {
+    @apply bg-gray-300 border-gray-300;
+  }
+}
+
+// DARK ----------------------------------------------------------------
+
+.dark {
+  .introjs-helperLayer {
+    box-shadow: rgb(102 163 216 / 80%) 0px 0px 1px 2px, rgb(75 85 99 / 50%) 0px 0px 0px 5000px !important;
+  }
+
+  .introjs-tooltip {
+    @apply bg-gray-900;
+  }
+
+  .introjs-tooltiptext {
+    @apply text-gray-400;
+  }
+
+  .introjs-skipbutton {
+    @apply text-gray-500;
+
+    &:hover {
+      @apply text-gray-300;
+    }
+  }
+
+  .introjs-bullets ul li a {
+    @apply bg-gray-600;
+
+    &.active {
+      @apply bg-gray-400;
+    }
+  }
+
+  .introjs-tooltipbuttons {
+    @apply bg-gray-850 border-gray-800;
+  }
+
+  .introjs-button {
+    @apply bg-gray-600 text-white;
+
+    &:focus {
+      @apply outline-none ring-2 ring-offset-2 ring-gray-700 text-white ring-offset-gray-900;
+    }
+  }
+
+  .introjs-disabled {
+    @apply bg-gray-800 text-gray-700;
+
+    &:hover {
+      color: rgba(55, 65, 81, 1) !important;
+      @apply bg-gray-800 border-gray-800;
+    }
+  }
+
+  .introjs-arrow.top, .introjs-arrow.top-right, .introjs-arrow.top-left, .introjs-arrow.top-middle {
+    border-bottom-color: #0F1827;
+  }
+  .introjs-arrow.bottom, .introjs-arrow.bottom-right, .introjs-arrow.bottom-left, .introjs-arrow.bottom-middle {
+    border-top-color: #0F1827;
+  }
+  .introjs-arrow.left, .introjs-arrow.left-bottom, .introjs-arrow.left-middle {
+    border-right-color: #0F1827;
+  }
+  .introjs-arrow.right, .introjs-arrow.right-bottom, .introjs-arrow.right-middle {
+    border-left-color: #0F1827;
+  }
+}

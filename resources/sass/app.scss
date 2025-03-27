@@ -1,0 +1,52 @@
+/**
+ * This injects Tailwind's base styles, which is a combination of
+ * Normalize.css and some additional base styles.
+ *
+ * You can see the styles here:
+ * https://unpkg.com/tailwindcss/dist/base.css
+ */
+
+@tailwind base;
+
+/**
+ * Remove the default box-shadow for invalid elements to prevent
+ * inputs in Livewire components showing with a
+ * red border by default in Firefox.
+ *
+ * See: https://github.com/laravel-frontend-presets/tall/issues/7
+ */
+input:invalid, textarea:invalid, select:invalid {
+    box-shadow: none;
+}
+
+/**
+ * This injects any component classes registered by plugins.
+ */
+@tailwind components;
+
+@import 'global';
+@import 'mixins';
+@import 'tippy';
+@import 'forms';
+@import 'filepond/filepond-base';
+@import 'filepond/filepond-plugin-file-poster';
+@import 'filepond/filepond-plugin-image-preview';
+@import 'filepond';
+@import 'typography';
+@import 'tables';
+@import 'tooltip';
+@import 'datepicker';
+@import 'tour';
+@import 'dark';
+// @import 'email-styles';
+
+/**
+ * This injects all of Tailwind's utility classes, generated based on your
+ * config file.
+ */
+@tailwind utilities;
+
+[x-cloak],
+[v-cloak] {
+    display: none;
+}

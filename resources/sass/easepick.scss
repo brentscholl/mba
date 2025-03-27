@@ -1,0 +1,45 @@
+.easepick-wrapper {
+  z-index: 9;
+}
+.container {
+  border-radius: 0.25rem;
+  font-family: inherit !important;
+  color: #0F1827;
+  margin-top: 2px;
+
+  .calendar {
+    background-color: #FAFAFB;
+    border-radius: 0.25rem;
+  }
+}
+
+.calendar>.days-grid>.day {
+  border-radius: 0.25rem;
+}
+
+.calendar>.days-grid>.day.selected {
+  background-color: #67A2D8;
+}
+.calendar>.days-grid>.day.selected:hover {
+  color: #fff;
+}
+
+.calendar>.days-grid>.day:hover {
+  border: 1px solid #67A2D8;
+  color: #67A2D8;
+  cursor: pointer;
+}
+
+.calendar>.header button:hover>img, .calendar>.header button:hover>svg {
+  fill: #67A2D8;
+  color: #67A2D8;
+}
+
+.container[data-theme=dark]{
+  color: #9BA3AF;
+
+  .calendar {
+    background-color: #1F2937;
+    border: 1px solid #374151;
+  }
+}

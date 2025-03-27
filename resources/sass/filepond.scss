@@ -1,0 +1,32 @@
+.filepond--credits { display: none; }
+.filepond--drop-label {
+  box-shadow: none;
+}
+//.filepond--root {
+//  @apply border-2 border-dashed;
+//}
+.filepond--root,
+.filepond--root .filepond--drop-label {
+  min-height: 200px;
+  @apply bg-white rounded-lg;
+}
+
+.dark {
+  .filepond--drop-label {
+    @apply bg-gray-700 border-gray-800;
+  }
+
+  .filepond--root {
+    @apply border-gray-800;
+  }
+
+  .filepond--panel-root {
+    @apply bg-gray-700;
+  }
+
+  .filepond--root,
+  .filepond--root .filepond--drop-label {
+    @apply bg-gray-700;
+  }
+
+}

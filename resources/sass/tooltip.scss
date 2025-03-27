@@ -1,0 +1,59 @@
+
+.tooltip {
+    position: relative;
+    width: auto;
+    height: auto;
+}
+
+/* POSITION */
+.tooltip__left {
+    position: absolute;
+    width: auto;
+    right: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    height:auto;
+    z-index: 999;
+
+
+    .tooltip__arrow {
+        top: 50%;
+        transform: translateY(-50%);
+        right: -6px;
+    }
+}
+
+.tooltip__top {
+    position: absolute;
+    width: auto;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    height:auto;
+    z-index: 999;
+
+
+    .tooltip__arrow {
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: -6px;
+    }
+}
+
+/* Tool tip */
+.tooltip__popper {
+    width: auto;
+    max-width: 300px;
+    min-width: 200px;
+    height: auto;
+    display: block;
+    z-index: 999;
+    @apply p-2 text-xs leading-tight text-secondary-500 bg-secondary-100 rounded-lg shadow-lg;
+}
+.tooltip__arrow {
+    position: absolute;
+    width: 1.5rem;
+    height: 0.8rem;
+    z-index:999;
+    @apply text-secondary-100 fill-current stroke-current;
+}

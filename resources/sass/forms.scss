@@ -1,0 +1,193 @@
+label {
+    @apply block text-sm font-medium text-gray-700;
+    position: relative;
+}
+.dark label {
+    @apply text-gray-400;
+}
+label.required:after {
+    content: "*";
+    color: rgba(252, 165, 165, 1);
+    position: absolute;
+    padding-top: 2px;
+    padding-left: 2px;
+    font-size: 0.75rem;
+}
+.form-input-container {
+    @apply mt-1 relative flex rounded-md shadow-sm;
+}
+.form-inline-input-container {
+    @apply inline-flex relative rounded-md shadow-sm;
+}
+.form-input-container--simple {
+    @apply relative flex;
+}
+.form-input-container a {
+    @apply text-secondary-500 font-medium;
+}
+.form-input-container ul {
+    list-style-type: disc!important;
+}
+.form-input-container ol {
+    list-style-type: decimal!important;
+}
+.form-input-container ol, .form-input-container ul {
+    margin-left: 0.75rem;
+    list-style-position: outside!important;
+    @apply text-sm text-gray-500;
+
+    li:not(:last-of-type) {
+        margin-bottom: 0.25rem;
+    }
+}
+
+.form-input-container__lead {
+    @apply inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500;
+    @include sm {
+        @apply text-sm;
+    }
+}
+
+.form-input-container__tail {
+    @apply inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500;
+    @include sm {
+        @apply text-sm;
+    }
+}
+
+.dark .form-input-container__lead, .dark .form-input-container__tail {
+    @apply border-gray-700 bg-gray-800 text-gray-400;
+}
+
+.form-input-container__input {
+    @apply shadow-sm border rounded block w-full border-gray-300;
+
+    @include sm {
+        @apply text-sm;
+    }
+
+    &:focus, &:active {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        --border-opacity: 1;
+        border-color: #0DB7A7;
+        border-color: rgba(13, 183, 167, var(--border-opacity));
+        --tw-ring-inset: var(--tw-empty,/*!*/ /*!*/);
+        --tw-ring-offset-width: 0px;
+        --tw-ring-offset-color: #fff;
+        --tw-ring-color: #1c64f2;
+        --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+        --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+        box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+    }
+
+    &.form-input-container__input--text-select {
+        @apply rounded-r-none;
+    }
+    &.form-input-container__input--has-lead {
+        @apply rounded-l-none;
+    }
+    &.form-input-container__input--has-tail {
+        @apply rounded-r-none;
+    }
+    &.form-input-container__input--has-error {
+        @apply pr-10 border-red-300 text-red-900;
+        @include sm {
+            @apply text-sm;
+        }
+        &::placeholder {
+            --tw-placeholder-opacity: 1;
+            color: rgba(252, 165, 165, var(--tw-placeholder-opacity));
+        }
+
+        &:focus, &:active {
+            --tw-ring-color: rgba(239, 68, 68, var(--tw-ring-opacity));
+            @apply outline-none border-red-500;
+        }
+    }
+}
+.dark .form-input-container__input {
+    @apply border-gray-700 bg-gray-700 text-gray-300;
+    &.form-input-container__input--has-error {
+        @apply border-red-600 text-red-600;
+    }
+}
+
+
+.form-input-container__input--simple {
+    @apply block py-2 px-2 w-full border-secondary-500 border-b border-t-0 border-l-0 border-r-0 font-medium;
+
+    @include sm {
+        @apply text-sm;
+    }
+
+    &:focus, &:active {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        --border-opacity: 1;
+        --tw-ring-inset: var(--tw-empty,/*!*/ /*!*/);
+        --tw-ring-offset-width: 0px;
+        --tw-ring-offset-color: transparent;
+        --tw-ring-color: transparent;
+        --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+        --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+        box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+        @apply border-secondary-600
+    }
+    &.form-input-container__input--has-error {
+        @apply pr-10 border-red-300 text-red-900;
+        @include sm {
+            @apply text-sm;
+        }
+        &::placeholder {
+            --tw-placeholder-opacity: 1;
+            color: rgba(252, 165, 165, var(--tw-placeholder-opacity));
+        }
+
+        &:focus, &:active {
+            --tw-ring-color: rgba(239, 68, 68, var(--tw-ring-opacity));
+            @apply outline-none border-red-500;
+        }
+    }
+}
+.dark .form-input-container__input--simple {
+    @apply bg-gray-800;
+}
+
+.form-input-container__input__icon--has-error {
+    @apply absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none;
+}
+
+.form-input-container__input__error-message, .dark .form-input-container__input__error-message {
+    @apply mt-2 text-sm text-red-600;
+}
+
+/* Mentions */
+.mention-highlight {
+    @apply bg-secondary-500 text-white ring-1 ring-offset-1 ring-secondary-500;
+}
+.mention-container {
+    @apply bg-gray-50 rounded-md shadow z-10 border border-2 text-secondary-500 text-xs;
+}
+.mention-item {
+    @apply py-1 px-2 rounded-md transition duration-200 ease-in-out;
+}
+
+.fr-emoticon {
+    width: 20px;
+    height: 20px;
+    display: inline-block;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+}
+
+// Froala
+#fr-logo {
+    display: none;
+}
+
+textarea {
+    min-height: 4rem;
+    max-height: 80rem;
+}

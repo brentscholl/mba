@@ -1,0 +1,67 @@
+h1, .h1 {
+    @apply text-4xl leading-6 font-bold text-primary-900;
+}
+h2, .h2 {
+    @apply text-3xl leading-6 font-bold text-primary-900;
+}
+h3, .h3 {
+    @apply text-2xl leading-6 font-bold text-primary-900;
+}
+h4, .h4 {
+    @apply text-xl leading-6 font-medium text-primary-900;
+
+}
+h5, .h5 {
+    @apply text-lg leading-6 font-medium text-primary-900;
+}
+h6, .h6 {
+    @apply text-base leading-6 font-medium text-primary-900;
+}
+
+p {
+    @apply text-sm text-primary-500;
+
+    a {
+        @apply text-secondary-500 transition duration-150 ease-in-out;
+        &:hover {
+            @apply text-secondary-600;
+        }
+    }
+}
+
+em {
+    font-style: normal;
+    @apply rounded-md px-2 text-primary-900 font-bold bg-secondary-100;
+}
+
+.dark {
+    h1, .h1 {
+        color: rgb(156, 163, 175, 1);
+    }
+    h2, .h2 {
+        color: rgb(156, 163, 175, 1);
+    }
+    h3, .h3 {
+        color: rgb(156, 163, 175, 1);
+    }
+    h4, .h4 {
+        color: rgb(156, 163, 175, 1);
+
+    }
+    h5, .h5 {
+        color: rgb(156, 163, 175, 1);
+    }
+    h6, .h6 {
+        color: rgb(156, 163, 175, 1);
+    }
+
+    p {
+        @apply text-primary-400;
+    }
+
+    em {
+        @apply bg-gray-700 text-primary-400
+    }
+}
+
+
