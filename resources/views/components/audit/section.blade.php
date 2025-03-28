@@ -1,4 +1,10 @@
-@props(['label', 'title', 'count', 'items', 'expanded', 'toggle'])
+@props(['label', 'title', 'count', 'items', 'limit', 'toggle'])
+
+@php
+    $config = config("audit.$label");
+    $description = $config['description'] ?? null;
+    $whyItMatters = $config['why'] ?? null;
+@endphp
 
 <div class="border border-gray-200 rounded-lg p-4">
     <div class="font-semibold text-gray-800 mb-2 flex justify-between items-center">
@@ -6,15 +12,34 @@
         <span class="text-sm text-gray-500">{{ number_format($count) }} issue{{ $count === 1 ? '' : 's' }}</span>
     </div>
 
+    @if ($description)
+        <div class="rounded bg-primary-100 p-2 mb-4 flex items-start space-x-2">
+            <x-svg.info-circle class="w-5 h-5 text-primary-500"/>
+            <div>
+                <p class="text-sm text-gray-600 mb-2">
+                    {{ $description }}
+                </p>
+
+                @if ($whyItMatters)
+                    <p class="text-xs text-gray-500 italic mb-4">
+                        <span class="text-gray-600">Why it matters:</span> {{ $whyItMatters }}
+                    </p>
+                @endif
+            </div>
+        </div>
+    @endif
+
     @if ($count)
         <ul class="text-sm text-gray-700 space-y-2">
-            @foreach ($expanded ? $items : array_slice($items, 0, 5) as $item)
+            @foreach (array_slice($items, 0, $limit) as $item)
                 <li class="border-b pb-2">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700">
                         @foreach ($item as $key => $val)
                             <div>
-                                <span class="font-medium">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
-                                <span class="ml-1">{{ is_array($val) ? json_encode($val) : $val }}</span>
+                                <span class="font-medium text-gray-800">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
+                                <span class="ml-1">
+                                    {{ is_array($val) ? implode(', ', array_filter($val, fn($v) => $v !== '')) : $val }}
+                                </span>
                             </div>
                         @endforeach
                     </div>
@@ -22,14 +47,31 @@
             @endforeach
         </ul>
 
-        @if ($count > 5)
-            <button
-                wire:click="{{ $toggle }}"
-                class="mt-2 text-sm text-blue-600 hover:underline"
-            >
-                {{ $expanded ? 'Show less' : 'Show more' }}
-            </button>
+        @if ($count > $limit)
+            <div x-data="{ loading: false }" class="flex space-x-2 mt-2">
+                <button
+                    x-on:click="loading = true"
+                    wire:click="{{ $toggle }}"
+                    x-bind:disabled="loading"
+                    class="mt-2 text-sm text-primary-600 hover:underline flex items-center space-x-1 disabled:opacity-50"
+                >
+                    <template x-if="loading">
+                        <x-svg.spinner class="w-4 h-4 animate-spin text-primary-500"/>
+                    </template>
+                    <span x-text="loading ? 'Loading...' : 'Show more'"></span>
+                </button>
+                @if ($limit > 104) {{-- clicked at least once --}}
+                <button
+                    wire:click="$set('sectionLimits.{{ $label }}', 4)"
+                    class="mt-1 text-sm text-gray-500 hover:underline"
+                >
+                    Collapse
+                </button>
+                @endif
+            </div>
         @endif
+
+
     @else
         <p class="text-gray-500 italic text-sm">No issues found.</p>
     @endif

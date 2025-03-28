@@ -2,7 +2,7 @@
 namespace App\Jobs;
 
 use App\Models\File;
-use App\Services\CsvAuditService;
+use App\Services\AuditService;
 use App\Services\CsvExtractionService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -28,11 +28,8 @@ class ProcessCsvUpload implements ShouldQueue
         $this->file->update(['status' => 'extracting']);
         app(CsvExtractionService::class)->handle($this->file);
 
-        Log::info('ProcessCsvUpload.php: Starting audit for file ID: ' . $this->file->id);
-        $this->file->update(['status' => 'auditing']);
-        app(CsvAuditService::class)->handle($this->file);
-
-        $this->file->update(['status' => 'done']);
+        Log::info('ProcessCsvUpload.php: Dispatching AuditFileJob for file ID: ' . $this->file->id);
+        AuditFileJob::dispatch($this->file);
     }
 
 }

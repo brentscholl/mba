@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\File;
-use App\Services\CsvAuditService;
+use App\Services\AuditService;
 
 class AuditFile extends Command
 {
@@ -30,13 +30,13 @@ class AuditFile extends Command
             // Delete the existing audit report items
             $file->auditReportItems()->delete();
 
-            $this->info('Existing audit report deleted.');
+            $this->info('Existing audit report items deleted.');
         }
 
         $this->info("Auditing file with ID: {$file->id} ({$file->original_filename})...");
 
         $file->update(['status' => 'auditing']);
-        app(CsvAuditService::class)->handle($file);
+        app(AuditService::class)->handle($file);
         $file->update(['status' => 'done']);
 
         $this->info('✅ Audit complete.');

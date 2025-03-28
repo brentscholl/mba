@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\File;
+use Illuminate\Support\Facades\Config;
 use Livewire\Component;
 
 class FileShow extends Component
@@ -11,6 +12,7 @@ class FileShow extends Component
 
     public array $audits = [];
     public array $expandedSections = [];
+    public array $sectionLimits = [];
 
     public function mount(File $file): void
     {
@@ -37,7 +39,12 @@ class FileShow extends Component
 
     public function toggleSection(string $key): void
     {
-        $this->expandedSections[$key] = !($this->expandedSections[$key] ?? false);
+        $this->sectionLimits[$key] = ($this->sectionLimits[$key] ?? 4) + 100;
+    }
+
+    public function getTotalInvoiceCountProperty(): int
+    {
+        return $this->file->invoices()->count();
     }
 
     public function render()
@@ -52,6 +59,8 @@ class FileShow extends Component
             'file' => $this->file,
             'audits' => $this->audits,
             'expandedSections' => $this->expandedSections,
+            'sectionLimits' => $this->sectionLimits,
+            'totalInvoiceCount' => $this->totalInvoiceCount,
         ])->layout('layouts.app');
     }
 }
