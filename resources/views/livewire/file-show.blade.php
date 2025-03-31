@@ -168,4 +168,8 @@
             </div>
         @endif
     </div>
+        <div class="mt-6 flex space-x-4 justify-end w-full">
+            <button wire:click="rerunManualAudit" class="text-xs text-gray-300 hover:text-gray-400">Rerun Manual Audit</button>
+            <button wire:click="rerunAIAudit" class="text-xs text-gray-300 hover:text-gray-400">Rerun AI Audit</button>
+        </div>
 </div>

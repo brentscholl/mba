@@ -2,6 +2,8 @@
 
 namespace App\Livewire;
 
+use App\Jobs\AIAuditJob;
+use App\Jobs\AuditFileJob;
 use App\Models\File;
 use Livewire\Component;
 
@@ -63,6 +65,15 @@ class FileShow extends Component
     public function getTotalInvoiceCountProperty(): int
     {
         return $this->file->invoices()->count();
+    }
+
+    public function rerunAIAudit()
+    {
+        AIAuditJob::dispatch($this->file);
+    }
+    public function rerunManualAudit()
+    {
+        AuditFileJob::dispatch($this->file);
     }
 
     public function render()
