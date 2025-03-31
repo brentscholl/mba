@@ -18,9 +18,9 @@ class File extends Model
         return $this->hasMany(Invoice::class);
     }
 
-    public function auditReportItems()
+    public function auditReports()
     {
-        return $this->hasMany(AuditReportItem::class);
+        return $this->hasMany(\App\Models\AuditReport::class);
     }
 
     // SCOPES ================================================================================================

@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('audit_report_items', function (Blueprint $table) {
+        Schema::create('audit_report_item_invoice', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('audit_report_id')->constrained()->onDelete('cascade');
-            $table->json('data'); // structured info per item (e.g. reasoning, code, etc.)
+            $table->foreignId('audit_report_item_id')->constrained()->onDelete('cascade');
+            $table->foreignId('invoice_id')->constrained()->onDelete('cascade');
             $table->timestamps();
         });
     }
@@ -24,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('audit_report_items');
+        Schema::dropIfExists('audit_report_item_invoice');
     }
 };

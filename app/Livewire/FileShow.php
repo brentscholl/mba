@@ -3,7 +3,6 @@
 namespace App\Livewire;
 
 use App\Models\File;
-use Illuminate\Support\Facades\Config;
 use Livewire\Component;
 
 class FileShow extends Component
@@ -18,28 +17,47 @@ class FileShow extends Component
     {
         $this->file = $file;
 
-        if ($file->status === 'done') {
+        if (in_array($file->status, ['done', 'auditing', 'auditing-ai'])) {
             $this->loadAudits();
         }
     }
 
     public function loadAudits(): void
     {
-        $this->audits = $this->file->auditReportItems()
+        $this->audits = [
+            'manual' => [],
+            'ai' => [],
+        ];
+
+        $this->file->auditReports()
+            ->with('items')
             ->get()
-            ->mapWithKeys(fn ($item) => [
-                $item->key => [
-                    'title' => $item->title,
-                    'count' => $item->count,
-                    'items' => $item->items ?? [],
-                ],
-            ])
-            ->toArray();
+            ->each(function ($report) {
+                $group = $report->type === 'ai' ? 'ai' : 'manual';
+
+                $items = $report->items->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'data' => $item->data,
+                        'reasoning' => $item->reasoning,
+                    ];
+                })->toArray();
+
+                $this->audits[$group][$report->key] = [
+                    'id' => $report->id,
+                    'title' => $report->title,
+                    'count' => count($items),
+                    'items' => $items,
+                ];
+
+                // Set default visible count to 5
+                $this->sectionLimits[$report->key] = 5;
+            });
     }
 
     public function toggleSection(string $key): void
     {
-        $this->sectionLimits[$key] = ($this->sectionLimits[$key] ?? 4) + 100;
+        $this->sectionLimits[$key] = ($this->sectionLimits[$key] ?? 5) + 100;
     }
 
     public function getTotalInvoiceCountProperty(): int
@@ -51,7 +69,7 @@ class FileShow extends Component
     {
         $this->file = $this->file->refresh();
 
-        if ($this->file->status === 'done' && empty($this->audits)) {
+        if (in_array($this->file->status, ['auditing-ai', 'done']) && empty($this->audits)) {
             $this->loadAudits();
         }
 

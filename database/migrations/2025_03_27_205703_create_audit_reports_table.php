@@ -11,11 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('audit_report_items', function (Blueprint $table) {
+        Schema::create('audit_reports', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('audit_report_id')->constrained()->onDelete('cascade');
-            $table->json('data'); // structured info per item (e.g. reasoning, code, etc.)
+            $table->foreignId('file_id')->constrained()->onDelete('cascade');
+            $table->string('key'); // e.g., 'upcoding_detection'
+            $table->string('title');
+            $table->string('type')->default('ai')->index(); // 'ai' or 'manual'
             $table->timestamps();
+
+            $table->unique(['file_id', 'key']);
         });
     }
 
@@ -24,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('audit_report_items');
+        Schema::dropIfExists('audit_reports');
     }
 };

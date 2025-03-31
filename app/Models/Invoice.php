@@ -27,6 +27,11 @@ class Invoice extends Model
         return $this->belongsTo(File::class);
     }
 
+    public function auditReportItems()
+    {
+        return $this->belongsToMany(AuditReportItem::class);
+    }
+
     // SCOPES ================================================================================================
 
     // API ===================================================================================================

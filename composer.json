@@ -14,7 +14,9 @@
         "laravel/horizon": "^5.31",
         "laravel/tinker": "^2.10.1",
         "league/csv": "^9.22",
-        "livewire/livewire": "^3.6"
+        "livewire/livewire": "^3.6",
+        "openai-php/client": "^0.10.3",
+        "spatie/laravel-rate-limited-job-middleware": "^2.8"
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.15",

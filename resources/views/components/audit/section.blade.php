@@ -1,4 +1,4 @@
-@props(['label', 'title', 'count', 'items', 'limit', 'toggle'])
+@props(['label', 'title', 'count', 'items', 'limit', 'toggle', 'reportId'])
 
 @php
     $config = config("audit.$label");
@@ -8,7 +8,12 @@
 
 <div class="border border-gray-200 rounded-lg p-4">
     <div class="font-semibold text-gray-800 mb-2 flex justify-between items-center">
-        <span>{{ $title }}</span>
+        <a
+            href="{{ route('audit.report.show', ['report' => $reportId]) }}"
+            class="hover:underline text-primary-700"
+        >
+            {{ $title }}
+        </a>
         <span class="text-sm text-gray-500">{{ number_format($count) }} issue{{ $count === 1 ? '' : 's' }}</span>
     </div>
 
@@ -38,7 +43,11 @@
                             <div>
                                 <span class="font-medium text-gray-800">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
                                 <span class="ml-1">
-                                    {{ is_array($val) ? implode(', ', array_filter($val, fn($v) => $v !== '')) : $val }}
+                                    @if (is_array($val))
+                                        {{ collect($val)->implode(', ') }}
+                                    @else
+                                        {{ $val }}
+                                    @endif
                                 </span>
                             </div>
                         @endforeach
@@ -48,30 +57,16 @@
         </ul>
 
         @if ($count > $limit)
-            <div x-data="{ loading: false }" class="flex space-x-2 mt-2">
-                <button
-                    x-on:click="loading = true"
-                    wire:click="{{ $toggle }}"
-                    x-bind:disabled="loading"
-                    class="mt-2 text-sm text-primary-600 hover:underline flex items-center space-x-1 disabled:opacity-50"
+            <div class="flex space-x-4 mt-3">
+                <a
+                    href="{{ route('audit.report.show', ['report' => $reportId]) }}"
+                    class="text-sm text-primary-600 hover:underline flex items-center space-x-1"
                 >
-                    <template x-if="loading">
-                        <x-svg.spinner class="w-4 h-4 animate-spin text-primary-500"/>
-                    </template>
-                    <span x-text="loading ? 'Loading...' : 'Show more'"></span>
-                </button>
-                @if ($limit > 104) {{-- clicked at least once --}}
-                <button
-                    wire:click="$set('sectionLimits.{{ $label }}', 4)"
-                    class="mt-1 text-sm text-gray-500 hover:underline"
-                >
-                    Collapse
-                </button>
-                @endif
+                    <x-svg.arrow-right class="w-4 h-4"/>
+                    <span>View Full Report</span>
+                </a>
             </div>
         @endif
-
-
     @else
         <p class="text-gray-500 italic text-sm">No issues found.</p>
     @endif

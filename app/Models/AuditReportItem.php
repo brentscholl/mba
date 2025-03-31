@@ -6,14 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class AuditReportItem extends Model
 {
-    protected $fillable = ['file_id', 'key', 'title', 'count', 'items'];
+    protected $guarded = [];
 
     protected $casts = [
-        'items' => 'array',
+        'data' => 'array',
     ];
 
-    public function file()
+    public function report()
     {
-        return $this->belongsTo(File::class);
+        return $this->belongsTo(AuditReport::class);
+    }
+
+    public function invoices()
+    {
+        return $this->belongsToMany(Invoice::class);
     }
 }
