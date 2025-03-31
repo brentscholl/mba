@@ -4,14 +4,13 @@ namespace App\Jobs;
 
 use App\Models\File;
 use App\Services\AIAuditService;
-use App\Services\AuditService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class AuditFileJob implements ShouldQueue
+class AIAuditJob implements ShouldQueue
 {
     use Queueable, InteractsWithQueue, \Illuminate\Bus\Queueable, SerializesModels;
 
@@ -29,10 +28,8 @@ class AuditFileJob implements ShouldQueue
      */
     public function handle(): void
     {
-        Log::info('AuditFileJob.php: Starting audit for file ID: ' . $this->file->id);
-        $this->file->update(['status' => 'auditing']);
-        app(AuditService::class)->handle($this->file);
-
-        AIAuditJob::dispatch($this->file);
+        Log::info('AIAuditFileJob.php: Starting AI audit for file ID: ' . $this->file->id);
+        $this->file->update(['status' => 'auditing-ai']);
+        app(AIAuditService::class)->handle($this->file);
     }
 }
