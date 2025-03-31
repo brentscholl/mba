@@ -12,6 +12,8 @@ class AIAuditService
 {
     public function handle(File $file): void
     {
+        ini_set('memory_limit', '-1');
+
         Log::info('AIAuditService: Starting AI audits for file ID: '.$file->id);
 
         $jobs = collect()
@@ -34,6 +36,8 @@ class AIAuditService
 
     public function handleSingleAudit(File $file, string $auditKey): void
     {
+        ini_set('memory_limit', '-1');
+
         Log::info("AIAuditService: Running single audit [{$auditKey}] for file ID: {$file->id}");
 
         $map = [
