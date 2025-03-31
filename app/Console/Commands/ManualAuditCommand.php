@@ -2,60 +2,85 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\File;
-use App\Models\AuditReport;
-use App\Services\AuditService;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
-class ManualAuditCommand extends Command
+class DeleteFileCommand extends Command
 {
-    protected $signature = 'audit:manual {--file= : The ID of the file to audit}';
-    protected $description = 'Run the AuditService on a specific file (or the first one found)';
+    protected $signature = 'file:delete {file_id?}';
+    protected $description = 'Delete a file and its related invoices and audit reports';
 
     public function handle(): int
     {
-        $fileId = $this->option('file');
+        // If no file ID passed, let user choose interactively
+        $fileId = $this->argument('file_id');
 
-        $file = $fileId
-            ? File::find($fileId)
-            : File::first();
-
-        if (! $file) {
-            $this->error($fileId ? "File with ID {$fileId} not found." : 'No files in the database.');
-            return Command::FAILURE;
+        if (!$fileId) {
+            $fileId = $this->choice(
+                'Select a file to delete',
+                File::latest()->take(20)->get()->mapWithKeys(fn($f) => [$f->id => "[#{$f->id}] {$f->original_filename}"])->toArray()
+            );
         }
 
-        $reports = AuditReport::with('items')
-            ->where('file_id', $file->id)
-            ->where('type', 'manual')
-            ->get();
+        $file = File::with(['auditReports'])->find($fileId);
 
-        if ($reports->isNotEmpty()) {
-            $this->info("Manual audit reports found for file ID {$file->id} ({$file->original_filename})");
-            $this->info('Deleting existing manual audit reports and their items...');
+        if (!$file) {
+            $this->error("❌ File with ID {$fileId} not found.");
+            return 1;
+        }
 
-            foreach ($reports as $report) {
-                $report->items()->each(function ($item) {
-                    $item->invoices()->detach(); // Detach pivot first
-                    $item->delete();
-                });
+        $this->warn("⚠️ You are about to delete File #{$file->id}: {$file->original_filename} and all related data.");
+        if (!$this->confirm('Are you sure?')) {
+            $this->info("❌ Cancelled.");
+            return 0;
+        }
 
+        DB::transaction(function () use ($file) {
+            $this->info('🧹 Deleting invoices...');
+            $invoiceCount = $file->invoices()->count();
+            $file->invoices()->delete();
+
+            $this->info('🧹 Deleting audit reports and items...');
+            foreach ($file->auditReports as $report) {
+                $itemIds = $report->auditReportItems()->pluck('id');
+
+                // Bulk delete pivot entries
+                DB::table('audit_report_item_invoice')
+                    ->whereIn('audit_report_item_id', $itemIds)
+                    ->delete();
+
+                // Delete items in chunks
+                $report->auditReportItems()
+                    ->select('id')
+                    ->chunkById(1000, function ($items) {
+                        DB::table('audit_report_items')
+                            ->whereIn('id', $items->pluck('id'))
+                            ->delete();
+                    });
+
+                // Delete the report
                 $report->delete();
             }
 
-            $this->info('Manual audit reports and items deleted.');
-        }
+            // Delete the physical file from storage
+            if ($file->file_dir && $file->filename) {
+                $path = $file->file_dir . '/' . $file->filename;
+                if (Storage::disk('public')->exists($path)) {
+                    Storage::disk('public')->delete($path);
+                    $this->info("🗑 Deleted file from storage: {$path}");
+                } else {
+                    $this->warn("⚠️ File not found in storage: {$path}");
+                }
+            }
 
-        $this->info("Auditing file ID {$file->id} ({$file->original_filename})...");
+            // Delete the file record itself
+            $file->delete();
 
-        $file->update(['status' => 'auditing']);
+            $this->info("✅ Deleted File #{$file->id}, {$invoiceCount} invoices, and related audit reports.");
+        });
 
-        app(AuditService::class)->handle($file);
-
-        $file->update(['status' => 'done']);
-
-        $this->info('✅ Audit complete.');
-
-        return Command::SUCCESS;
+        return 0;
     }
 }

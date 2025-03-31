@@ -31,27 +31,9 @@ class AuditService
         );
     }
 
-    protected function addItem(AuditReport $report, array $data, array $invoiceIds = []): void
-    {
-        if (!is_array($data)) {
-            Log::error('AuditService: Expected data to be array in addItem()', ['data' => $data]);
-            return;
-        }
-
-        $item = AuditReportItem::create([
-            'audit_report_id' => $report->id,
-            'data' => $data,
-        ]);
-
-        if (!empty($invoiceIds)) {
-            $item->invoices()->syncWithoutDetaching($invoiceIds);
-        }
-    }
-
-
     protected function checkLineItemTotals(File $file): void
     {
-        Log::info('AuditService: Checking line item totals for file ID: ' . $file->id);
+        Log::info('AuditService: Checking line item totals');
         $report = $this->createReport($file, 'line_total_mismatches', 'Line Item Total Mismatches');
 
         $rows = DB::table('invoices')
@@ -65,22 +47,49 @@ class AuditService
             ->whereRaw('ROUND(ProviderAmountEach * BilledQuantity, 2) != ROUND(ProviderAmountTotal, 2)')
             ->get();
 
+        $items = [];
+        $pivot = [];
+
         foreach ($rows as $row) {
-            $this->addItem($report, [
-                'Order Number' => $row->OrderNumber,
-                'HCPCs Code' => $row->HCPCsCode,
-                'Billed Quantity' => $row->BilledQuantity,
-                'Provider Amount Each' => $row->ProviderAmountEach,
-                'Provider Amount Total' => $row->ProviderAmountTotal,
-                'Expected Total' => $row->expected_total,
-                'Delta' => $row->delta,
-            ], [$row->id]);
+            $items[] = [
+                'audit_report_id' => $report->id,
+                'data' => json_encode([
+                    'Order Number' => $row->OrderNumber,
+                    'HCPCs Code' => $row->HCPCsCode,
+                    'Billed Quantity' => $row->BilledQuantity,
+                    'Provider Amount Each' => $row->ProviderAmountEach,
+                    'Provider Amount Total' => $row->ProviderAmountTotal,
+                    'Expected Total' => $row->expected_total,
+                    'Delta' => $row->delta,
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
+
+        $inserted = AuditReportItem::insert($items);
+
+        $insertedIds = DB::table('audit_report_items')
+            ->where('audit_report_id', $report->id)
+            ->latest('id')
+            ->limit(count($rows))
+            ->pluck('id')
+            ->reverse()
+            ->values();
+
+        foreach ($insertedIds as $index => $itemId) {
+            $pivot[] = [
+                'audit_report_item_id' => $itemId,
+                'invoice_id' => $rows[$index]->id,
+            ];
+        }
+
+        DB::table('audit_report_item_invoice')->insert($pivot);
     }
 
     protected function checkDuplicateCharges(File $file): void
     {
-        Log::info('AuditService: Checking for duplicate charges for file ID: ' . $file->id);
+        Log::info('AuditService: Checking for duplicate charges');
         $report = $this->createReport($file, 'duplicate_charges', 'Duplicate Charges');
 
         $groups = DB::table('invoices')
@@ -90,65 +99,150 @@ class AuditService
             ->having('count', '>', 1)
             ->get();
 
+        $items = [];
+        $pivot = [];
+
         foreach ($groups as $group) {
             $invoiceIds = Invoice::where('file_id', $file->id)
                 ->where('PatientID', $group->PatientID)
                 ->where('HCPCsCode', $group->HCPCsCode)
                 ->where('PaymentDate', $group->PaymentDate)
-                ->pluck('id')
-                ->toArray();
+                ->pluck('id');
 
-            $this->addItem($report, [
-                'Patient ID' => $group->PatientID,
-                'HCPCs Code' => $group->HCPCsCode,
-                'Payment Date' => $group->PaymentDate,
-                'Duplicate Count' => $group->count,
-            ], $invoiceIds);
+            $items[] = [
+                'audit_report_id' => $report->id,
+                'data' => json_encode([
+                    'Patient ID' => $group->PatientID,
+                    'HCPCs Code' => $group->HCPCsCode,
+                    'Payment Date' => $group->PaymentDate,
+                    'Duplicate Count' => $group->count,
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
+
+        AuditReportItem::insert($items);
+
+        $insertedIds = DB::table('audit_report_items')
+            ->where('audit_report_id', $report->id)
+            ->latest('id')
+            ->limit(count($items))
+            ->pluck('id')
+            ->reverse()
+            ->values();
+
+        foreach ($groups as $index => $group) {
+            $invoiceIds = Invoice::where('file_id', $file->id)
+                ->where('PatientID', $group->PatientID)
+                ->where('HCPCsCode', $group->HCPCsCode)
+                ->where('PaymentDate', $group->PaymentDate)
+                ->pluck('id');
+
+            foreach ($invoiceIds as $invoiceId) {
+                $pivot[] = [
+                    'audit_report_item_id' => $insertedIds[$index],
+                    'invoice_id' => $invoiceId,
+                ];
+            }
+        }
+
+        DB::table('audit_report_item_invoice')->insert($pivot);
     }
 
     protected function checkHighUnitPrices(File $file, float $threshold = 500): void
     {
-        Log::info('AuditService: Checking for high unit prices for file ID: ' . $file->id);
-
+        Log::info('AuditService: Checking high unit prices');
         $report = $this->createReport($file, 'high_unit_prices', 'High Unit Prices');
 
         $rows = Invoice::where('file_id', $file->id)
             ->where('ProviderAmountEach', '>', $threshold)
             ->get();
 
+        $items = [];
+        $pivot = [];
+
         foreach ($rows as $row) {
-            $this->addItem($report, [
-                'HCPCs Code' => $row->HCPCsCode,
-                'Description' => $row->Description,
-                'Unit Price' => $row->ProviderAmountEach,
-            ], [$row->id]);
+            $items[] = [
+                'audit_report_id' => $report->id,
+                'data' => json_encode([
+                    'HCPCs Code' => $row->HCPCsCode,
+                    'Description' => $row->Description,
+                    'Unit Price' => $row->ProviderAmountEach,
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
+
+        AuditReportItem::insert($items);
+
+        $insertedIds = DB::table('audit_report_items')
+            ->where('audit_report_id', $report->id)
+            ->latest('id')
+            ->limit(count($rows))
+            ->pluck('id')
+            ->reverse()
+            ->values();
+
+        foreach ($insertedIds as $index => $itemId) {
+            $pivot[] = [
+                'audit_report_item_id' => $itemId,
+                'invoice_id' => $rows[$index]->id,
+            ];
+        }
+
+        DB::table('audit_report_item_invoice')->insert($pivot);
     }
 
     protected function checkExcessiveQuantities(File $file, int $threshold = 100): void
     {
-        Log::info('AuditService: Checking for excessive quantities for file ID: ' . $file->id);
-
+        Log::info('AuditService: Checking excessive quantities');
         $report = $this->createReport($file, 'suspiciously_high_quantities', 'Suspiciously High Quantities');
 
         $rows = Invoice::where('file_id', $file->id)
             ->where('BilledQuantity', '>', $threshold)
             ->get();
 
+        $items = [];
+        $pivot = [];
+
         foreach ($rows as $row) {
-            $this->addItem($report, [
-                'HCPCs Code' => $row->HCPCsCode,
-                'Quantity' => $row->BilledQuantity,
-                'Description' => $row->Description,
-            ], [$row->id]);
+            $items[] = [
+                'audit_report_id' => $report->id,
+                'data' => json_encode([
+                    'HCPCs Code' => $row->HCPCsCode,
+                    'Quantity' => $row->BilledQuantity,
+                    'Description' => $row->Description,
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
+
+        AuditReportItem::insert($items);
+
+        $insertedIds = DB::table('audit_report_items')
+            ->where('audit_report_id', $report->id)
+            ->latest('id')
+            ->limit(count($rows))
+            ->pluck('id')
+            ->reverse()
+            ->values();
+
+        foreach ($insertedIds as $index => $itemId) {
+            $pivot[] = [
+                'audit_report_item_id' => $itemId,
+                'invoice_id' => $rows[$index]->id,
+            ];
+        }
+
+        DB::table('audit_report_item_invoice')->insert($pivot);
     }
 
     protected function checkSameDayDuplicates(File $file): void
     {
-        Log::info('AuditService: Checking for same-day duplicates for file ID: ' . $file->id);
-
+        Log::info('AuditService: Checking same-day duplicates');
         $report = $this->createReport($file, 'same_day_duplicates', 'Same-Day Duplicate Charges');
 
         $groups = DB::table('invoices')
@@ -158,27 +252,60 @@ class AuditService
             ->having('count', '>', 1)
             ->get();
 
+        $items = [];
+        $pivot = [];
+
         foreach ($groups as $group) {
             $invoiceIds = Invoice::where('file_id', $file->id)
                 ->where('PatientID', $group->PatientID)
                 ->where('HCPCsCode', $group->HCPCsCode)
                 ->where('DOS', $group->DOS)
-                ->pluck('id')
-                ->toArray();
+                ->pluck('id');
 
-            $this->addItem($report, [
-                'Patient ID' => $group->PatientID,
-                'HCPCs Code' => $group->HCPCsCode,
-                'Date of Service' => $group->DOS,
-                'Count' => $group->count,
-            ], $invoiceIds);
+            $items[] = [
+                'audit_report_id' => $report->id,
+                'data' => json_encode([
+                    'Patient ID' => $group->PatientID,
+                    'HCPCs Code' => $group->HCPCsCode,
+                    'Date of Service' => $group->DOS,
+                    'Count' => $group->count,
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
+
+        AuditReportItem::insert($items);
+
+        $insertedIds = DB::table('audit_report_items')
+            ->where('audit_report_id', $report->id)
+            ->latest('id')
+            ->limit(count($items))
+            ->pluck('id')
+            ->reverse()
+            ->values();
+
+        foreach ($groups as $index => $group) {
+            $invoiceIds = Invoice::where('file_id', $file->id)
+                ->where('PatientID', $group->PatientID)
+                ->where('HCPCsCode', $group->HCPCsCode)
+                ->where('DOS', $group->DOS)
+                ->pluck('id');
+
+            foreach ($invoiceIds as $invoiceId) {
+                $pivot[] = [
+                    'audit_report_item_id' => $insertedIds[$index],
+                    'invoice_id' => $invoiceId,
+                ];
+            }
+        }
+
+        DB::table('audit_report_item_invoice')->insert($pivot);
     }
 
     protected function checkMissingPayments(File $file): void
     {
-        Log::info('AuditService: Checking for missing payment information for file ID: ' . $file->id);
-
+        Log::info('AuditService: Checking missing payments');
         $report = $this->createReport($file, 'missing_payments', 'Missing Payment Information');
 
         $rows = Invoice::where('file_id', $file->id)
@@ -189,17 +316,44 @@ class AuditService
             })
             ->get();
 
+        $items = [];
+        $pivot = [];
+
         foreach ($rows as $row) {
             $missing = [];
             if (!$row->PaymentDate) $missing[] = 'PaymentDate';
             if (!$row->PaymentNumber) $missing[] = 'PaymentNumber';
             if (!$row->PaymentType) $missing[] = 'PaymentType';
 
-            $this->addItem($report, [
-                'HCPCs Code' => $row->HCPCsCode,
-                'Description' => $row->Description,
-                'Missing Fields' => $missing,
-            ], [$row->id]);
+            $items[] = [
+                'audit_report_id' => $report->id,
+                'data' => json_encode([
+                    'HCPCs Code' => $row->HCPCsCode,
+                    'Description' => $row->Description,
+                    'Missing Fields' => $missing,
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
+
+        AuditReportItem::insert($items);
+
+        $insertedIds = DB::table('audit_report_items')
+            ->where('audit_report_id', $report->id)
+            ->latest('id')
+            ->limit(count($rows))
+            ->pluck('id')
+            ->reverse()
+            ->values();
+
+        foreach ($insertedIds as $index => $itemId) {
+            $pivot[] = [
+                'audit_report_item_id' => $itemId,
+                'invoice_id' => $rows[$index]->id,
+            ];
+        }
+
+        DB::table('audit_report_item_invoice')->insert($pivot);
     }
 }
