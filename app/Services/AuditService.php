@@ -6,6 +6,7 @@ use App\Models\File;
 use App\Models\Invoice;
 use App\Models\AuditReport;
 use App\Models\AuditReportItem;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -22,6 +23,35 @@ class AuditService
         $this->checkExcessiveQuantities($file);
         $this->checkSameDayDuplicates($file);
         $this->checkMissingPayments($file);
+    }
+
+    public function handleSingleAudit(File $file, string $auditKey): void
+    {
+        ini_set('memory_limit', '-1');
+        Log::info('AuditService: Starting single audit for file ID: ' . $file->id);
+
+        switch ($auditKey) {
+            case 'line_total_mismatches':
+                $this->checkLineItemTotals($file);
+                break;
+            case 'duplicate_charges':
+                $this->checkDuplicateCharges($file);
+                break;
+            case 'high_unit_prices':
+                $this->checkHighUnitPrices($file);
+                break;
+            case 'suspiciously_high_quantities':
+                $this->checkExcessiveQuantities($file);
+                break;
+            case 'same_day_duplicates':
+                $this->checkSameDayDuplicates($file);
+                break;
+            case 'missing_payments':
+                $this->checkMissingPayments($file);
+                break;
+            default:
+                Log::warning('AuditService: Unknown audit key: ' . $auditKey);
+        }
     }
 
     protected function createReport(File $file, string $key, string $title): AuditReport
