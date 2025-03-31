@@ -13,6 +13,7 @@ class AuditService
 {
     public function handle(File $file): void
     {
+        ini_set('memory_limit', '-1');
         Log::info('AuditService: Starting manual audits for file ID: ' . $file->id);
 
         $this->checkLineItemTotals($file);
