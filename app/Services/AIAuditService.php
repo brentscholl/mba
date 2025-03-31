@@ -12,7 +12,7 @@ class AIAuditService
 {
     public function handle(File $file): void
     {
-        Log::info('AIAuditService: Starting AI audits for file ID: ' . $file->id);
+        Log::info('AIAuditService: Starting AI audits for file ID: '.$file->id);
 
         $jobs = collect()
             ->merge($this->checkUnrelatedProcedureCodes($file))
@@ -32,22 +32,59 @@ class AIAuditService
             ->dispatch();
     }
 
+    public function handleSingleAudit(File $file, string $auditKey): void
+    {
+        Log::info("AIAuditService: Running single audit [{$auditKey}] for file ID: {$file->id}");
+
+        $map = [
+            'unrelated_procedure_codes' => 'checkUnrelatedProcedureCodes',
+            'upcoding'                  => 'checkUpcoding',
+            'modifier_misuse'           => 'checkModifierMisuse',
+            'unrealistic_frequencies'   => 'checkUnrealisticFrequencies',
+            'template_billing'          => 'checkTemplateBilling',
+            'dme_check'                 => 'checkExcessiveDMECharges',
+            'suspicious_language'       => 'checkSuspiciousLanguage',
+        ];
+
+        if (! array_key_exists($auditKey, $map)) {
+            Log::error("AIAuditService: Unknown audit key [{$auditKey}]");
+            throw new \InvalidArgumentException("Unknown audit type: {$auditKey}");
+        }
+
+        $method = $map[$auditKey];
+        $jobs = $this->{$method}($file);
+
+        Bus::batch($jobs)
+            ->then(function () use ($file, $auditKey) {
+                // Only update to done if all audits are done
+                if ($file->auditReports()->where('type', 'ai')->count() > 0) {
+                    $file->update(['status' => 'done']);
+                }
+
+                Log::info("✅ AI audit '{$auditKey}' complete for file ID {$file->id}");
+            })
+            ->name("AI Audit ({$auditKey}) for File #{$file->id}")
+            ->dispatch();
+    }
+
     protected function checkUnrelatedProcedureCodes(File $file): array
     {
-        $patients = DB::table('invoices')
-            ->select('PatientID', DB::raw('GROUP_CONCAT(DISTINCT Description SEPARATOR "; ") as descriptions'))
+        $rows = DB::table('invoices')
+            ->select('id', 'PatientID', 'Description')
             ->where('file_id', $file->id)
-            ->groupBy('PatientID')
             ->get()
-            ->map(fn ($row) => [
-                'PatientID' => $row->PatientID,
-                'descriptions' => array_filter(explode('; ', $row->descriptions)),
+            ->groupBy('PatientID')
+            ->map(fn($group) => [
+                'PatientID'    => $group->first()->PatientID,
+                'descriptions' => $group->pluck('Description')->unique()->values()->all(),
+                'invoice_ids'  => $group->pluck('id')->unique()->values()->all(),
             ])
+            ->values()
             ->toArray();
 
-        return collect($patients)
+        return collect($rows)
             ->chunk(10)
-            ->map(fn ($chunk) => new RunAIAuditChunk(
+            ->map(fn($chunk) => new RunAIAuditChunk(
                 file: $file,
                 auditKey: 'unrelated_procedure_codes',
                 auditTitle: 'Unrelated Procedure Codes',
@@ -58,25 +95,28 @@ class AIAuditService
 
     protected function checkUpcoding(File $file): array
     {
-        $data = DB::table('invoices')
-            ->select('PatientID', 'HCPCsCode', 'Description', 'ProviderAmountEach')
+        $rows = DB::table('invoices')
+            ->select('id', 'PatientID', 'HCPCsCode', 'Description', 'ProviderAmountEach')
             ->where('file_id', $file->id)
             ->get()
             ->groupBy('PatientID')
-            ->map(fn ($rows) => [
-                'PatientID' => $rows->first()->PatientID,
-                'codes' => $rows->map(fn ($r) => [
-                    'code' => $r->HCPCsCode,
-                    'description' => $r->Description,
-                    'price' => $r->ProviderAmountEach,
-                ])->toArray()
-            ])
+            ->map(function ($group) {
+                return [
+                    'PatientID'   => $group->first()->PatientID,
+                    'codes'       => $group->map(fn($r) => [
+                        'code'        => $r->HCPCsCode,
+                        'description' => $r->Description,
+                        'price'       => $r->ProviderAmountEach,
+                    ])->toArray(),
+                    'invoice_ids' => $group->pluck('id')->unique()->values()->all(),
+                ];
+            })
             ->values()
             ->toArray();
 
-        return collect($data)
+        return collect($rows)
             ->chunk(10)
-            ->map(fn ($chunk) => new RunAIAuditChunk(
+            ->map(fn($chunk) => new RunAIAuditChunk(
                 file: $file,
                 auditKey: 'upcoding_detection',
                 auditTitle: 'Potential Upcoding',
@@ -87,27 +127,30 @@ class AIAuditService
 
     protected function checkModifierMisuse(File $file): array
     {
-        $data = DB::table('invoices')
-            ->select('PatientID', 'HCPCsCode', 'Modifier', 'Description')
+        $rows = DB::table('invoices')
+            ->select('id', 'PatientID', 'HCPCsCode', 'Modifier', 'Description')
             ->where('file_id', $file->id)
             ->whereNotNull('Modifier')
             ->where('Modifier', '!=', '')
             ->get()
             ->groupBy('PatientID')
-            ->map(fn ($rows) => [
-                'PatientID' => $rows->first()->PatientID,
-                'modifiers' => $rows->map(fn ($r) => [
-                    'code' => $r->HCPCsCode,
-                    'modifier' => $r->Modifier,
-                    'description' => $r->Description,
-                ])->toArray()
-            ])
+            ->map(function ($group) {
+                return [
+                    'PatientID'   => $group->first()->PatientID,
+                    'modifiers'   => $group->map(fn($r) => [
+                        'code'        => $r->HCPCsCode,
+                        'modifier'    => $r->Modifier,
+                        'description' => $r->Description,
+                    ])->toArray(),
+                    'invoice_ids' => $group->pluck('id')->unique()->values()->all(),
+                ];
+            })
             ->values()
             ->toArray();
 
-        return collect($data)
+        return collect($rows)
             ->chunk(10)
-            ->map(fn ($chunk) => new RunAIAuditChunk(
+            ->map(fn($chunk) => new RunAIAuditChunk(
                 file: $file,
                 auditKey: 'modifier_misuse',
                 auditTitle: 'Suspicious Modifier Usage',
@@ -118,26 +161,44 @@ class AIAuditService
 
     protected function checkUnrealisticFrequencies(File $file): array
     {
-        $data = DB::table('invoices')
-            ->select('PatientID', 'HCPCsCode', DB::raw('COUNT(*) as frequency'), DB::raw('GROUP_CONCAT(DISTINCT Description SEPARATOR "; ") as description'))
+        // Get frequencies per patient and code
+        $frequencyData = DB::table('invoices')
+            ->select(
+                'PatientID',
+                'HCPCsCode',
+                DB::raw('COUNT(*) as frequency'),
+                DB::raw('GROUP_CONCAT(DISTINCT Description SEPARATOR "; ") as description')
+            )
             ->where('file_id', $file->id)
             ->groupBy('PatientID', 'HCPCsCode')
             ->get()
-            ->groupBy('PatientID')
-            ->map(fn ($rows) => [
-                'PatientID' => $rows->first()->PatientID,
-                'frequencies' => $rows->map(fn ($r) => [
-                    'code' => $r->HCPCsCode,
-                    'description' => $r->description,
-                    'frequency' => $r->frequency,
-                ])->toArray()
-            ])
-            ->values()
-            ->toArray();
+            ->groupBy('PatientID');
 
-        return collect($data)
+        // Get invoice IDs per patient
+        $invoiceIdsPerPatient = DB::table('invoices')
+            ->select('PatientID', 'id')
+            ->where('file_id', $file->id)
+            ->get()
+            ->groupBy('PatientID')
+            ->map(fn($rows) => $rows->pluck('id')->unique()->values()->all());
+
+        // Assemble final patient list
+        $patients = $frequencyData->map(function ($rows, $patientId) use ($invoiceIdsPerPatient) {
+            return [
+                'PatientID'   => $patientId,
+                'frequencies' => $rows->map(fn ($r) => [
+                    'code'        => $r->HCPCsCode,
+                    'description' => $r->description,
+                    'frequency'   => $r->frequency,
+                ])->toArray(),
+                'invoice_ids' => $invoiceIdsPerPatient[$patientId] ?? [],
+            ];
+        })->values();
+
+        // Chunk and dispatch jobs
+        return $patients
             ->chunk(10)
-            ->map(fn ($chunk) => new RunAIAuditChunk(
+            ->map(fn($chunk) => new RunAIAuditChunk(
                 file: $file,
                 auditKey: 'unrealistic_frequencies',
                 auditTitle: 'Unrealistic Billing Frequencies',
@@ -146,22 +207,29 @@ class AIAuditService
             ))->all();
     }
 
+
     protected function checkTemplateBilling(File $file): array
     {
-        $data = DB::table('invoices')
-            ->select('PatientID', DB::raw('GROUP_CONCAT(DISTINCT HCPCsCode ORDER BY HCPCsCode SEPARATOR ";") as codes'))
+        // Step 1: Get all invoices for the file
+        $invoices = DB::table('invoices')
+            ->select('id', 'PatientID', 'HCPCsCode')
             ->where('file_id', $file->id)
-            ->groupBy('PatientID')
             ->get()
-            ->map(fn ($r) => [
-                'PatientID' => $r->PatientID,
-                'codes' => explode(';', $r->codes),
-            ])
-            ->toArray();
+            ->groupBy('PatientID');
 
+        // Step 2: Build patient-wise billing patterns
+        $data = $invoices->map(function ($rows, $patientId) {
+            return [
+                'PatientID'   => $patientId,
+                'codes'       => $rows->pluck('HCPCsCode')->unique()->sort()->values()->all(),
+                'invoice_ids' => $rows->pluck('id')->unique()->values()->all(),
+            ];
+        })->values()->toArray();
+
+        // Step 3: Chunk and dispatch
         return collect($data)
             ->chunk(10)
-            ->map(fn ($chunk) => new RunAIAuditChunk(
+            ->map(fn($chunk) => new RunAIAuditChunk(
                 file: $file,
                 auditKey: 'template_billing',
                 auditTitle: 'Template Billing Pattern',
@@ -172,8 +240,8 @@ class AIAuditService
 
     protected function checkExcessiveDMECharges(File $file): array
     {
-        $data = DB::table('invoices')
-            ->select('PatientID', 'HCPCsCode', 'Description', 'ProviderAmountTotal')
+        $invoices = DB::table('invoices')
+            ->select('id', 'PatientID', 'HCPCsCode', 'Description', 'ProviderAmountTotal')
             ->where('file_id', $file->id)
             ->where(function ($q) {
                 $q->where('Description', 'like', '%wheelchair%')
@@ -181,21 +249,23 @@ class AIAuditService
                     ->orWhere('Description', 'like', '%brace%');
             })
             ->get()
-            ->groupBy('PatientID')
-            ->map(fn ($rows) => [
-                'PatientID' => $rows->first()->PatientID,
-                'items' => $rows->map(fn ($r) => [
-                    'code' => $r->HCPCsCode,
-                    'desc' => $r->Description,
+            ->groupBy('PatientID');
+
+        $data = $invoices->map(function ($rows, $patientId) {
+            return [
+                'PatientID'   => $patientId,
+                'items'       => $rows->map(fn($r) => [
+                    'code'  => $r->HCPCsCode,
+                    'desc'  => $r->Description,
                     'total' => $r->ProviderAmountTotal,
-                ])->toArray()
-            ])
-            ->values()
-            ->toArray();
+                ])->toArray(),
+                'invoice_ids' => $rows->pluck('id')->unique()->values()->all(),
+            ];
+        })->values()->toArray();
 
         return collect($data)
             ->chunk(10)
-            ->map(fn ($chunk) => new RunAIAuditChunk(
+            ->map(fn($chunk) => new RunAIAuditChunk(
                 file: $file,
                 auditKey: 'excessive_dme_charges',
                 auditTitle: 'Excessive DME Billing',
@@ -206,20 +276,31 @@ class AIAuditService
 
     protected function checkSuspiciousLanguage(File $file): array
     {
-        $data = DB::table('invoices')
+        $invoices = DB::table('invoices')
             ->select('PatientID', DB::raw('GROUP_CONCAT(DISTINCT Description SEPARATOR "; ") as descriptions'))
             ->where('file_id', $file->id)
             ->groupBy('PatientID')
-            ->get()
-            ->map(fn ($r) => [
-                'PatientID' => $r->PatientID,
-                'descriptions' => array_filter(explode('; ', $r->descriptions)),
-            ])
-            ->toArray();
+            ->get();
+
+        $data = $invoices->map(function ($row) use ($file) {
+            $invoiceIds = DB::table('invoices')
+                ->where('file_id', $file->id)
+                ->where('PatientID', $row->PatientID)
+                ->pluck('id')
+                ->unique()
+                ->values()
+                ->all();
+
+            return [
+                'PatientID'    => $row->PatientID,
+                'descriptions' => array_filter(explode('; ', $row->descriptions)),
+                'invoice_ids'  => $invoiceIds,
+            ];
+        })->values()->toArray();
 
         return collect($data)
             ->chunk(10)
-            ->map(fn ($chunk) => new RunAIAuditChunk(
+            ->map(fn($chunk) => new RunAIAuditChunk(
                 file: $file,
                 auditKey: 'suspicious_language',
                 auditTitle: 'Suspicious Language in Descriptions',
@@ -232,82 +313,99 @@ class AIAuditService
     {
         $json = json_encode($chunk, JSON_PRETTY_PRINT);
 
-        return match ($auditType) {
-            'unrelated_procedure_codes' => <<<EOT
-The following are billing descriptions for multiple patients. For each patient:
-- Infer the likely procedure or treatment based off the HCPCs codes and descriptions
-- Detect if any items are unrelated to the rest of the codes.
-- Identify unrelated items that are not within the scope of the procedure or treatment, this does not include items needed for recovery or follow-up care.
-- Ignore items such as Sales Tax, Shipping, etc. those are not considered unrelated.
-Return an array of JSON objects do not make any statements in your response, explicitly return the JSON: PatientID, procedure, unrelated_items (array), reasoning.
+        $instructions = [
+            'unrelated_procedure_codes' => [
+                'title' => 'Unrelated Procedure Codes',
+                'body'  => <<<TXT
+For each patient:
+- Infer the likely procedure or treatment based on the HCPCs codes and descriptions.
+- Identify any items that appear unrelated to that procedure or treatment.
+- Exclude recovery or follow-up items from being flagged as unrelated.
+- Ignore generic entries like "Sales Tax", "Shipping", etc.
 
-$json
-EOT,
+Return an array of JSON objects with: PatientID, procedure, unrelated_items (array), reasoning.
+TXT,
+            ],
 
-            'upcoding' => <<<EOT
-The following is patient invoice data that contain billing HCPCs codes, description, and amount paid. For each patient:
- - Flag any that are overpriced based on common pricing for items with same code. Only flag the patent's billing HCPCs code if the item cost is 80% higher than the median range cost for that item.
-- Reasoning for flagging should include the item description, the median range cost for that item, what the patient was charged, and the percentage difference.
-- The format for your reasoning string should be: "Code: {code}, Description: {description}, Charged: {provider_amount_each}, Median Cost: {median_cost}, Difference: {difference}%"
-- You're response should not contain a summary or any other text, only the JSON response.
+            'upcoding' => [
+                'title' => 'Potential Upcoding',
+                'body'  => <<<TXT
+For each patient:
+- Flag HCPCs codes where the unit cost is significantly (80%+) higher than the typical market cost for that code.
+- Provide a reasoning string including the actual cost, expected median cost, and percentage difference.
+
 Return an array of JSON objects: PatientID, suspicious_codes (array), reasoning (string).
+TXT,
+            ],
 
-$json
-EOT,
+            'modifier_misuse' => [
+                'title' => 'Suspicious Modifier Usage',
+                'body'  => <<<TXT
+For each patient:
+- Analyze the use of HCPCs modifiers.
+- Flag any usage that appears invalid or potentially abusive.
 
-            'modifier_misuse' => <<<EOT
-The following is patient invoice data that contain billing PatientID, HCPCs codes, description, Modifier, and Description. For each patient:
-- Check if any modifiers are suspicious or incorrect.
-- You're response should not contain a summary or any other text, only the JSON response.
 Return an array of JSON objects: PatientID, suspicious_modifiers (array), reasoning.
+TXT,
+            ],
 
-$json
-EOT,
+            'unrealistic_frequencies' => [
+                'title' => 'Unrealistic Frequencies',
+                'body'  => <<<TXT
+For each patient:
+- Identify HCPCs codes used with unusually high frequency compared to standard expectations.
+- Explain why the frequency is unrealistic and what the expected norm is.
 
-            'unrealistic_frequencies' => <<<EOT
-The following is patient invoice data that contain billing PatientID, and HCPCs codes. For each patient:
-- Flag any codes used too frequently for each patient.
-- the frequency should be an unrealistic amount commonly expected for the code.
-- Your reasoning should include the code, description, the frequency, and the common expected frequency.
 Return an array of JSON objects: PatientID, suspicious_code, frequency, expected_frequency, reasoning.
+TXT,
+            ],
 
-$json
-EOT,
+            'template_billing' => [
+                'title' => 'Template Billing',
+                'body'  => <<<TXT
+For each patient:
+- Identify if the billing pattern appears to be copied from a template across patients.
 
-            'template_billing' => <<<EOT
-The following is patient invoice data that contain billing PatientID, and HCPCs codes. For each patient:
-- Detect if patients were billed with a template pattern.
 Return an array of JSON objects: PatientID, suspicious (string: "True" or null), reasoning.
+TXT,
+            ],
 
-$json
-EOT,
+            'dme_check' => [
+                'title' => 'Excessive DME Charges',
+                'body'  => <<<TXT
+For each patient:
+- Review Durable Medical Equipment (DME) charges.
+- Flag excessive or unnecessary DME items.
 
-            'dme_check' => <<<EOT
-The following is patient invoice data that contain billing PatientID, HCPCs codes, description, and Provider amount total. For each patient:
-- Identify expensive or unnecessary DME charges.
-- Identify how many times the item was billed.
-- Identify the excessive items billed. If there are any excessive items, return the item as an array in the json object.
 Return an array of JSON: PatientID, excessive_items (array), reasoning.
+TXT,
+            ],
 
-$json
-EOT,
+            'suspicious_language' => [
+                'title' => 'Suspicious Language in Descriptions',
+                'body'  => <<<TXT
+For each patient:
+- Detect vague or suspicious language in HCPCs code descriptions.
 
-            'suspicious_language' => <<<EOT
-The following is patient invoice data that contain billing PatientID, and the HCPCs code's description. For each patient:
-- Flag vague or suspicious wording in descriptions.
-Return an array of JSON objects: PatientID, suspicious_phrases (array), reasoning.
+Return an array of JSON: PatientID, suspicious_phrases (array), reasoning.
+TXT,
+            ],
+        ];
 
-$json
-EOT,
+        throw_if(! isset($instructions[$auditType]), new \InvalidArgumentException("Unknown audit type: $auditType"));
 
-            default => throw new \InvalidArgumentException("Unknown audit type: $auditType"),
-        };
+        $systemPrompt = "You are a helpful AI that returns only JSON.";
+        $userPrompt = $instructions[$auditType]['body']."\n\n{$json}";
+
+        return <<<PROMPT
+{$userPrompt}
+PROMPT;
     }
 
     public function transformResult(string $auditType, array $p, mixed $parsed, string $raw): ?array
     {
         $base = [
-            'data' => [],
+            'data'        => [],
             'invoice_ids' => [],
         ];
 
@@ -315,10 +413,10 @@ EOT,
             'unrelated_procedure_codes' => empty($p['unrelated_items']) ? null : [
                 ...$base,
                 'data' => [
-                    'PatientID' => $p['PatientID'],
-                    'procedure' => $p['procedure'] ?? 'Unknown',
+                    'PatientID'       => $p['PatientID'],
+                    'procedure'       => $p['procedure'] ?? 'Unknown',
                     'unrelated_items' => $p['unrelated_items'],
-                    'reasoning' => $p['reasoning'] ?? $raw,
+                    'reasoning'       => $p['reasoning'] ?? $raw,
                 ],
             ],
 
@@ -334,53 +432,51 @@ EOT,
             'modifier_misuse' => empty($p['suspicious_modifiers']) ? null : [
                 ...$base,
                 'data' => [
-                    'PatientID' => $p['PatientID'],
+                    'PatientID'            => $p['PatientID'],
                     'suspicious_modifiers' => $p['suspicious_modifiers'],
-                    'reasoning' => $p['reasoning'] ?? $raw,
+                    'reasoning'            => $p['reasoning'] ?? $raw,
                 ],
             ],
 
             'unrealistic_frequencies' => empty($p['suspicious_code']) ? null : [
                 ...$base,
                 'data' => [
-                    'PatientID' => $p['PatientID'],
-                    'suspicious_code' => $p['suspicious_code'],
-                    'frequency' => $p['frequency'],
+                    'PatientID'          => $p['PatientID'],
+                    'suspicious_code'    => $p['suspicious_code'],
+                    'frequency'          => $p['frequency'],
                     'expected_frequency' => $p['expected_frequency'],
-                    'reasoning' => $p['reasoning'] ?? $raw,
+                    'reasoning'          => $p['reasoning'] ?? $raw,
                 ],
             ],
 
             'template_billing' => empty($p['suspicious']) ? null : [
                 ...$base,
                 'data' => [
-                    'PatientID' => $p['PatientID'],
+                    'PatientID'  => $p['PatientID'],
                     'suspicious' => $p['suspicious'],
-                    'reasoning' => $p['reasoning'] ?? $raw,
+                    'reasoning'  => $p['reasoning'] ?? $raw,
                 ],
             ],
 
             'dme_check' => empty($p['excessive_items']) ? null : [
                 ...$base,
                 'data' => [
-                    'PatientID' => $p['PatientID'],
+                    'PatientID'       => $p['PatientID'],
                     'excessive_items' => $p['excessive_items'],
-                    'reasoning' => $p['reasoning'] ?? $raw,
+                    'reasoning'       => $p['reasoning'] ?? $raw,
                 ],
             ],
 
             'suspicious_language' => empty($p['suspicious_phrases']) ? null : [
                 ...$base,
                 'data' => [
-                    'PatientID' => $p['PatientID'],
+                    'PatientID'          => $p['PatientID'],
                     'suspicious_phrases' => $p['suspicious_phrases'],
-                    'reasoning' => $p['reasoning'] ?? $raw,
+                    'reasoning'          => $p['reasoning'] ?? $raw,
                 ],
             ],
 
             default => null,
         };
     }
-
-
 }

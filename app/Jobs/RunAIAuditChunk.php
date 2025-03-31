@@ -3,15 +3,14 @@
 namespace App\Jobs;
 
 use App\Models\File;
+use App\Models\Invoice;
 use App\Models\AuditReport;
 use App\Models\AuditReportItem;
-use App\Models\Invoice;
 use App\Services\AIAuditService;
 use App\Services\OpenAIService;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -70,31 +69,35 @@ class RunAIAuditChunk implements ShouldQueue
                 'type' => 'ai',
             ]);
 
-            $results = $this->isAssoc($response)
-                ? [$service->transformResult($this->auditType, $response, $response, json_encode($response))]
-                : collect($response)
-                    ->map(fn ($p) => $service->transformResult($this->auditType, $p, $p, json_encode($response)))
-                    ->filter()
-                    ->values();
+            // Normalize to an array of results
+            $responseItems = $this->normalizeResponse($response);
 
-            foreach ($results as $result) {
+            foreach ($responseItems as $p) {
+                $result = $service->transformResult(
+                    auditType: $this->auditType,
+                    p: $p,
+                    parsed: $responseItems,
+                    raw: json_encode($responseItems),
+                );
+
+                if (!$result) {
+                    continue;
+                }
+
                 $item = new AuditReportItem([
-                    'report_id' => $report->id,
-                    'data' => $result,
+                    'audit_report_id' => $report->id,
+                    'data' => $result['data'],
                 ]);
                 $item->save();
 
-                // Attach related invoices using the PatientID
-                if (isset($result['PatientID'])) {
+                if (!empty($result['invoice_ids'])) {
                     $invoiceIds = Invoice::where('file_id', $this->file->id)
-                        ->where('PatientID', $result['PatientID'])
+                        ->whereIn('id', $result['invoice_ids'])
                         ->pluck('id');
 
                     $item->invoices()->sync($invoiceIds);
                 }
             }
-
-            $report->update(['count' => $report->items()->count()]);
 
             Log::info("✅ Stored AI results for '{$this->auditKey}' (chunk size: " . count($this->chunk) . ")");
         } catch (\Throwable $e) {
@@ -109,6 +112,17 @@ class RunAIAuditChunk implements ShouldQueue
         }
     }
 
+    /**
+     * Normalize the AI response into an array of patient-level records.
+     */
+    private function normalizeResponse(array $response): array
+    {
+        return $this->isAssoc($response) ? [$response] : $response;
+    }
+
+    /**
+     * Determine if an array is associative.
+     */
     private function isAssoc(array $arr): bool
     {
         return array_keys($arr) !== range(0, count($arr) - 1);

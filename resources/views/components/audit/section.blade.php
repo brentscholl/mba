@@ -39,8 +39,8 @@
             @foreach (array_slice($items, 0, $limit) as $item)
                 <li class="border-b pb-2">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700">
-                        @foreach ($item as $key => $val)
-                            <div>
+                        @foreach ($item['data'] as $key => $val)
+                        <div>
                                 <span class="font-medium text-gray-800">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
                                 <span class="ml-1">
                                     @if (is_array($val))

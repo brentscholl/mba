@@ -47,13 +47,23 @@ class AIAuditCommand extends Command
 
         if ($choice === 'all') {
             $this->info("Deleting all previous AI audit reports...");
-            $file->auditReports()->where('type', 'ai')->each->delete();
+            $file->auditReports()
+                ->where('type', 'ai')
+                ->get()
+                ->each
+                ->delete();
 
             $this->info("Dispatching all AI audit jobs...");
             app(AIAuditService::class)->handle($file);
         } else {
             $this->info("Deleting previous '{$choice}' audit report (if exists)...");
-            $file->auditReports()->where('type', 'ai')->where('key', $choice)->each->delete();
+            $file->auditReports()
+                ->where('type', 'ai')
+                ->where('key', $choice)
+                ->get()
+                ->each
+                ->delete();
+
 
             $this->info("Dispatching '{$choice}' AI audit job...");
             app(AIAuditService::class)->handleSingleAudit($file, $choice);

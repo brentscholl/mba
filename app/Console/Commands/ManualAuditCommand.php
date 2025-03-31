@@ -52,6 +52,8 @@ class ManualAuditCommand extends Command
 
         app(AuditService::class)->handle($file);
 
+        $file->update(['status' => 'done']);
+
         $this->info('✅ Audit complete.');
 
         return Command::SUCCESS;
