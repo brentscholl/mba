@@ -47,11 +47,12 @@ class AuditService
             ->whereRaw('ROUND(ProviderAmountEach * BilledQuantity, 2) != ROUND(ProviderAmountTotal, 2)')
             ->get();
 
-        $items = [];
-        $pivot = [];
+        $chunkSize = 1000;
+        $items = collect();
+        $pivot = collect();
 
         foreach ($rows as $row) {
-            $items[] = [
+            $items->push([
                 'audit_report_id' => $report->id,
                 'data' => json_encode([
                     'Order Number' => $row->OrderNumber,
@@ -64,27 +65,32 @@ class AuditService
                 ]),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ];
+            ]);
         }
 
-        $inserted = AuditReportItem::insert($items);
+        $items->chunk($chunkSize)->each(function ($chunk) {
+            DB::table('audit_report_items')->insert($chunk->toArray());
+        });
 
+        // Get the IDs of the newly inserted items
         $insertedIds = DB::table('audit_report_items')
             ->where('audit_report_id', $report->id)
             ->latest('id')
-            ->limit(count($rows))
+            ->limit($items->count())
             ->pluck('id')
             ->reverse()
             ->values();
 
         foreach ($insertedIds as $index => $itemId) {
-            $pivot[] = [
+            $pivot->push([
                 'audit_report_item_id' => $itemId,
                 'invoice_id' => $rows[$index]->id,
-            ];
+            ]);
         }
 
-        DB::table('audit_report_item_invoice')->insert($pivot);
+        $pivot->chunk($chunkSize)->each(function ($chunk) {
+            DB::table('audit_report_item_invoice')->insert($chunk->toArray());
+        });
     }
 
     protected function checkDuplicateCharges(File $file): void
@@ -122,7 +128,9 @@ class AuditService
             ];
         }
 
-        AuditReportItem::insert($items);
+        collect($items)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_items')->insert($chunk->toArray());
+        });
 
         $insertedIds = DB::table('audit_report_items')
             ->where('audit_report_id', $report->id)
@@ -147,8 +155,11 @@ class AuditService
             }
         }
 
-        DB::table('audit_report_item_invoice')->insert($pivot);
+        collect($pivot)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_item_invoice')->insert($chunk->toArray());
+        });
     }
+
 
     protected function checkHighUnitPrices(File $file, float $threshold = 500): void
     {
@@ -175,7 +186,9 @@ class AuditService
             ];
         }
 
-        AuditReportItem::insert($items);
+        collect($items)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_items')->insert($chunk->toArray());
+        });
 
         $insertedIds = DB::table('audit_report_items')
             ->where('audit_report_id', $report->id)
@@ -192,7 +205,9 @@ class AuditService
             ];
         }
 
-        DB::table('audit_report_item_invoice')->insert($pivot);
+        collect($pivot)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_item_invoice')->insert($chunk->toArray());
+        });
     }
 
     protected function checkExcessiveQuantities(File $file, int $threshold = 100): void
@@ -220,7 +235,9 @@ class AuditService
             ];
         }
 
-        AuditReportItem::insert($items);
+        collect($items)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_items')->insert($chunk->toArray());
+        });
 
         $insertedIds = DB::table('audit_report_items')
             ->where('audit_report_id', $report->id)
@@ -237,7 +254,9 @@ class AuditService
             ];
         }
 
-        DB::table('audit_report_item_invoice')->insert($pivot);
+        collect($pivot)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_item_invoice')->insert($chunk->toArray());
+        });
     }
 
     protected function checkSameDayDuplicates(File $file): void
@@ -275,7 +294,9 @@ class AuditService
             ];
         }
 
-        AuditReportItem::insert($items);
+        collect($items)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_items')->insert($chunk->toArray());
+        });
 
         $insertedIds = DB::table('audit_report_items')
             ->where('audit_report_id', $report->id)
@@ -300,7 +321,9 @@ class AuditService
             }
         }
 
-        DB::table('audit_report_item_invoice')->insert($pivot);
+        collect($pivot)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_item_invoice')->insert($chunk->toArray());
+        });
     }
 
     protected function checkMissingPayments(File $file): void
@@ -337,7 +360,9 @@ class AuditService
             ];
         }
 
-        AuditReportItem::insert($items);
+        collect($items)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_items')->insert($chunk->toArray());
+        });
 
         $insertedIds = DB::table('audit_report_items')
             ->where('audit_report_id', $report->id)
@@ -354,6 +379,8 @@ class AuditService
             ];
         }
 
-        DB::table('audit_report_item_invoice')->insert($pivot);
+        collect($pivot)->chunk(1000)->each(function ($chunk) {
+            DB::table('audit_report_item_invoice')->insert($chunk->toArray());
+        });
     }
 }
