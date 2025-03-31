@@ -6,7 +6,7 @@
         tab: '',
         init() {
             const urlTab = (new URLSearchParams(window.location.search)).get('tab');
-            this.setTab(urlTab || '{{ !empty($audits['manual']) ? 'manual' : 'ai' }}', false);
+            this.setTab(urlTab || 'manual', false);
         },
         setTab(newTab, push = true) {
             this.tab = newTab;
