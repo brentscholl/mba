@@ -51,6 +51,7 @@ class AuditService
 
     protected function checkLineItemTotals(File $file): void
     {
+        Log::info('AuditService: Checking line item totals for file ID: ' . $file->id);
         $report = $this->createReport($file, 'line_total_mismatches', 'Line Item Total Mismatches');
 
         $rows = DB::table('invoices')
@@ -79,6 +80,7 @@ class AuditService
 
     protected function checkDuplicateCharges(File $file): void
     {
+        Log::info('AuditService: Checking for duplicate charges for file ID: ' . $file->id);
         $report = $this->createReport($file, 'duplicate_charges', 'Duplicate Charges');
 
         $groups = DB::table('invoices')
@@ -107,6 +109,8 @@ class AuditService
 
     protected function checkHighUnitPrices(File $file, float $threshold = 500): void
     {
+        Log::info('AuditService: Checking for high unit prices for file ID: ' . $file->id);
+
         $report = $this->createReport($file, 'high_unit_prices', 'High Unit Prices');
 
         $rows = Invoice::where('file_id', $file->id)
@@ -124,6 +128,8 @@ class AuditService
 
     protected function checkExcessiveQuantities(File $file, int $threshold = 100): void
     {
+        Log::info('AuditService: Checking for excessive quantities for file ID: ' . $file->id);
+
         $report = $this->createReport($file, 'suspiciously_high_quantities', 'Suspiciously High Quantities');
 
         $rows = Invoice::where('file_id', $file->id)
@@ -141,6 +147,8 @@ class AuditService
 
     protected function checkSameDayDuplicates(File $file): void
     {
+        Log::info('AuditService: Checking for same-day duplicates for file ID: ' . $file->id);
+
         $report = $this->createReport($file, 'same_day_duplicates', 'Same-Day Duplicate Charges');
 
         $groups = DB::table('invoices')
@@ -169,6 +177,8 @@ class AuditService
 
     protected function checkMissingPayments(File $file): void
     {
+        Log::info('AuditService: Checking for missing payment information for file ID: ' . $file->id);
+
         $report = $this->createReport($file, 'missing_payments', 'Missing Payment Information');
 
         $rows = Invoice::where('file_id', $file->id)

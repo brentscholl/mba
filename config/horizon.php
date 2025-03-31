@@ -201,12 +201,14 @@ return [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
+                'timeout' => 43200, // 12 hours
             ],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 3,
+                'timeout' => 43200, // 12 hours
             ],
         ],
     ],

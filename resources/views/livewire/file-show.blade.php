@@ -71,16 +71,22 @@
         {{-- Final Results --}}
         @if (!empty($audits['manual']) || !empty($audits['ai']) || $file->status !== 'done')
             <div class="space-y-4">
-                <h3 class="text-lg font-semibold mb-2">Audit Results:</h3>
 
                 <div class="border border-primary-200 p-4 rounded-lg text-sm text-primary-800">
                     <div class="flex justify-between items-center">
                         <div class="font-semibold">Total Invoices in File</div>
-                        <div class="font-bold">{{ number_format($totalInvoiceCount) }}</div>
+                        <div class="font-bold space-x-2 flex items-center">
+                            @if($file->status === 'extracting')
+                                <x-svg.spinner class="w-4 h-4 text-primary-500 mr-2"/>
+                            @endif
+                            {{ number_format($totalInvoiceCount) }}
+                        </div>
                     </div>
                 </div>
 
                 {{-- Tabs --}}
+                @if($file->status !== 'extracting')
+                <h3 class="text-lg font-semibold mb-2">Audit Results:</h3>
                 <div class="mt-6 flex space-x-4 border-b border-gray-200">
                     <button
                         class="px-4 py-2 text-sm font-medium"
@@ -122,7 +128,7 @@
                             <span>Audit is still processing...</span>
                         </div>
                     @else
-                        <div class="text-gray-500 text-sm italic">Manual audit data not available yet.</div>
+                        <div class="text-gray-300 text-sm italic">Manual audit data not available yet.</div>
                     @endif
                 </div>
 
@@ -155,9 +161,10 @@
                             <span>AI audit is still processing...</span>
                         </div>
                     @else
-                        <div class="text-gray-500 text-sm italic">No AI audit results found yet.</div>
+                        <div class="text-gray-300 text-sm italic">No AI audit results found yet.</div>
                     @endif
                 </div>
+                    @endif
             </div>
         @endif
     </div>
