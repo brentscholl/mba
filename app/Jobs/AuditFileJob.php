@@ -14,6 +14,8 @@ class AuditFileJob implements ShouldQueue
 {
     use Queueable, InteractsWithQueue, \Illuminate\Bus\Queueable, SerializesModels;
 
+    public $timeout = 43200; // 12 hours
+
     public File $file;
 
     public function __construct(File $file)
