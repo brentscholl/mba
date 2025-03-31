@@ -16,6 +16,8 @@ class AIAuditCommand extends Command
 
     public function handle(): int
     {
+        ini_set('memory_limit', '-1');
+
         $fileId = $this->option('file');
 
         $file = $fileId
