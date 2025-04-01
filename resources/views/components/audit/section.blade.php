@@ -37,10 +37,10 @@
     @if ($count)
         <ul class="text-sm text-gray-700 space-y-2">
             @foreach (array_slice($items, 0, $limit) as $item)
-                <li class="border-b pb-2">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700">
+                <li class="border-b pb-2 flex justify-between items-start gap-4">
+                    <div class="w-full grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700">
                         @foreach ($item['data'] as $key => $val)
-                        <div>
+                            <div>
                                 <span class="font-medium text-gray-800">{{ ucwords(str_replace('_', ' ', $key)) }}:</span>
                                 <span class="ml-1">
                                     @if (is_array($val))
@@ -52,7 +52,13 @@
                             </div>
                         @endforeach
                     </div>
+
+                    <a href="{{ route('audit.report.show-item', ['report' => $reportId, 'item' => $item['id']]) }}"
+                        class="shrink-0 whitespace-nowrap text-sm text-primary-600 hover:underline flex items-center space-x-1">
+                        <span>View Issue</span>
+                    </a>
                 </li>
+
             @endforeach
         </ul>
 

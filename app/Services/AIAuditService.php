@@ -13,6 +13,7 @@ class AIAuditService
     public function handle(File $file): void
     {
         ini_set('memory_limit', '-1');
+
         Log::info('AIAuditService: Starting AI audits for file ID: '.$file->id);
 
         $this->dispatchAuditJobs($file, 'checkUnrelatedProcedureCodes', 'unrelated_procedure_codes', 'Unrelated Procedure Codes');
@@ -75,7 +76,7 @@ class AIAuditService
             ->where('file_id', $file->id)
             ->get()
             ->groupBy('PatientID')
-            ->map(fn ($group) => [
+            ->map(fn($group) => [
                 'PatientID'    => $group->first()->PatientID,
                 'descriptions' => $group->pluck('Description')->unique()->values()->all(),
                 'invoice_ids'  => $group->pluck('id')->unique()->values()->all(),
@@ -85,12 +86,12 @@ class AIAuditService
 
         return collect($rows)
             ->chunk(10)
-            ->map(fn ($chunk) => new RunAIAuditChunk(
+            ->map(fn($chunk) => new RunAIAuditChunk(
                 file: $file,
                 auditKey: 'unrelated_procedure_codes',
                 auditTitle: 'Unrelated Procedure Codes',
                 auditType: 'unrelated_procedure_codes',
-                chunk: $chunk->values()->all()
+                chunk: $chunk->values()->all(),
             ))->all();
     }
 
@@ -190,6 +191,7 @@ class AIAuditService
             ))->all();
     }
 
+
     protected function checkTemplateBilling(File $file): array
     {
         $data = DB::table('invoices')
@@ -279,5 +281,177 @@ class AIAuditService
                 auditType: 'suspicious_language',
                 chunk: $chunk->values()->all()
             ))->all();
+    }
+
+    public function buildPrompt(string $auditType, array $chunk): string
+    {
+        $json = json_encode($chunk, JSON_PRETTY_PRINT);
+
+        $instructions = [
+            'unrelated_procedure_codes' => [
+                'title' => 'Unrelated Procedure Codes',
+                'body'  => <<<TXT
+For each patient:
+- Infer the likely procedure or treatment based on the HCPCs codes and descriptions.
+- Identify any items that appear unrelated to that procedure or treatment.
+- Exclude recovery or follow-up items from being flagged as unrelated.
+- Ignore generic entries like "Sales Tax", "Shipping", etc.
+
+Return an array of JSON objects with: PatientID, procedure, unrelated_items (array, code and description), reasoning.
+TXT,
+            ],
+
+            'upcoding' => [
+                'title' => 'Potential Upcoding',
+                'body'  => <<<TXT
+For each patient:
+- Flag HCPCs codes where the unit cost is significantly (80%+) higher than the typical market cost for that code.
+- Provide a reasoning string including the actual cost, expected median cost, and percentage difference.
+
+Return an array of JSON objects: PatientID, suspicious_codes (array), reasoning (string).
+TXT,
+            ],
+
+            'modifier_misuse' => [
+                'title' => 'Suspicious Modifier Usage',
+                'body'  => <<<TXT
+For each patient:
+- Analyze the use of HCPCs modifiers.
+- Flag any usage that appears invalid or potentially abusive.
+
+Return an array of JSON objects: PatientID, suspicious_modifiers (array), reasoning.
+TXT,
+            ],
+
+            'unrealistic_frequencies' => [
+                'title' => 'Unrealistic Frequencies',
+                'body'  => <<<TXT
+For each patient:
+- Identify HCPCs codes used with unusually high frequency compared to standard expectations.
+- Explain why the frequency is unrealistic and what the expected norm is.
+
+Return an array of JSON objects: PatientID, suspicious_code, frequency, expected_frequency, reasoning.
+TXT,
+            ],
+
+            'template_billing' => [
+                'title' => 'Template Billing',
+                'body'  => <<<TXT
+For each patient:
+- Identify if the billing pattern appears to be copied from a template across patients.
+- This should not include standard codes that may be used by multiple patients for common procedures or treatments.
+
+Return an array of JSON objects: PatientID, suspicious (string: "True" or null), reasoning.
+TXT,
+            ],
+
+            'dme_check' => [
+                'title' => 'Excessive DME Charges',
+                'body'  => <<<TXT
+For each patient:
+- Review Durable Medical Equipment (DME) charges.
+- Flag excessive or unnecessary DME items.
+
+Return an array of JSON: PatientID, excessive_items (array), reasoning.
+TXT,
+            ],
+
+            'suspicious_language' => [
+                'title' => 'Suspicious Language in Descriptions',
+                'body'  => <<<TXT
+For each patient:
+- Detect vague or suspicious language in HCPCs code descriptions.
+
+Return an array of JSON: PatientID, suspicious_phrases (array), reasoning.
+TXT,
+            ],
+        ];
+
+        throw_if(! isset($instructions[$auditType]), new \InvalidArgumentException("Unknown audit type: $auditType"));
+
+        $systemPrompt = "You are a helpful AI that returns only JSON.";
+        $userPrompt = $instructions[$auditType]['body']."\n\n{$json}";
+
+        return <<<PROMPT
+{$userPrompt}
+PROMPT;
+    }
+
+    public function transformResult(string $auditType, array $p, mixed $parsed, string $raw): ?array
+    {
+        $base = [
+            'data'        => [],
+            'invoice_ids' => [],
+        ];
+
+        return match ($auditType) {
+            'unrelated_procedure_codes' => empty($p['unrelated_items']) ? null : [
+                ...$base,
+                'data' => [
+                    'PatientID'       => $p['PatientID'],
+                    'procedure'       => $p['procedure'] ?? 'Unknown',
+                    'unrelated_items' => $p['unrelated_items'],
+                    'reasoning'       => $p['reasoning'] ?? $raw,
+                ],
+            ],
+
+            'upcoding' => empty($p['suspicious_codes']) ? null : [
+                ...$base,
+                'data' => [
+                    'PatientID' => $p['PatientID'],
+                    'suspicious_codes' => $p['suspicious_codes'],
+                    'reasoning' => $p['reasoning'] ?? $raw,
+                ],
+            ],
+
+            'modifier_misuse' => empty($p['suspicious_modifiers']) ? null : [
+                ...$base,
+                'data' => [
+                    'PatientID'            => $p['PatientID'],
+                    'suspicious_modifiers' => $p['suspicious_modifiers'],
+                    'reasoning'            => $p['reasoning'] ?? $raw,
+                ],
+            ],
+
+            'unrealistic_frequencies' => empty($p['suspicious_code']) ? null : [
+                ...$base,
+                'data' => [
+                    'PatientID'          => $p['PatientID'],
+                    'suspicious_code'    => $p['suspicious_code'],
+                    'frequency'          => $p['frequency'],
+                    'expected_frequency' => $p['expected_frequency'],
+                    'reasoning'          => $p['reasoning'] ?? $raw,
+                ],
+            ],
+
+            'template_billing' => empty($p['suspicious']) ? null : [
+                ...$base,
+                'data' => [
+                    'PatientID'  => $p['PatientID'],
+                    'suspicious' => $p['suspicious'],
+                    'reasoning'  => $p['reasoning'] ?? $raw,
+                ],
+            ],
+
+            'dme_check' => empty($p['excessive_items']) ? null : [
+                ...$base,
+                'data' => [
+                    'PatientID'       => $p['PatientID'],
+                    'excessive_items' => $p['excessive_items'],
+                    'reasoning'       => $p['reasoning'] ?? $raw,
+                ],
+            ],
+
+            'suspicious_language' => empty($p['suspicious_phrases']) ? null : [
+                ...$base,
+                'data' => [
+                    'PatientID'          => $p['PatientID'],
+                    'suspicious_phrases' => $p['suspicious_phrases'],
+                    'reasoning'          => $p['reasoning'] ?? $raw,
+                ],
+            ],
+
+            default => null,
+        };
     }
 }

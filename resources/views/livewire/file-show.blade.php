@@ -135,7 +135,6 @@
                 {{-- AI Audits --}}
                 <div x-show="tab === 'ai'" class="space-y-4 mt-6">
                     @if (!empty($audits['ai']))
-                        <div class="text-sm text-gray-500 italic">The following Audit reports were generated using AI.</div>
                         @foreach ($audits['ai'] as $key => $audit)
                             <x-audit.section
                                 :label="$key"

@@ -248,6 +248,12 @@ class AuditService
 
         $rows = Invoice::where('file_id', $file->id)
             ->where('BilledQuantity', '>', $threshold)
+            // where the description does not contain  units such as miles, hours, etc.
+            ->whereNot(function ($query) {
+                $query->where('Description', 'like', '%mile%')
+                    ->orWhere('Description', 'like', '%hour%')
+                    ->orWhere('Description', 'like', '%unit%');
+            })
             ->get();
 
         $items = [];

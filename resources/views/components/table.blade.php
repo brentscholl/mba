@@ -1,6 +1,7 @@
 @props([
     'collection' => null,
     'emptyStatement' => null,
+    'showLinks' => true,
 ])
 <div class="{{ $attributes->get('class') }}">
     @if(optional($collection)->count() > 0 || ! $emptyStatement)
@@ -25,12 +26,16 @@
                 {{ $controls }}
             </div>
         @endif
-    {{ optional($collection)->links() }}
+        @if($showLinks)
+            {{ optional($collection)->links() }}
+        @endif
     @else
-        <div class="rounded-md border-2 border-dashed px-6 border-gray-300 overflow-hidden sm:rounded-md flex flex-col justify-center items-center" style="height: 202px">
-            <div class="text-gray-400 my-8 text-center">
-                {{ $emptyStatement }}
+        @if($emptyStatement)
+            <div class="rounded-md border-2 border-dashed px-6 border-gray-300 overflow-hidden sm:rounded-md flex flex-col justify-center items-center" style="height: 202px">
+                <div class="text-gray-400 my-8 text-center">
+                    {{ $emptyStatement }}
+                </div>
             </div>
-        </div>
+        @endif
     @endif
 </div>
