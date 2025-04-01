@@ -31,31 +31,32 @@ class FileShow extends Component
             'ai' => [],
         ];
 
-        $this->file->auditReports()
-            ->with('items')
-            ->get()
-            ->each(function ($report) {
-                $group = $report->type === 'ai' ? 'ai' : 'manual';
+        $reports = $this->file->auditReports()->get();
 
-                $items = $report->items->map(function ($item) {
-                    return [
-                        'id' => $item->id,
-                        'data' => $item->data,
-                        'reasoning' => $item->reasoning,
-                    ];
-                })->toArray();
+        foreach ($reports as $report) {
+            $group = $report->type === 'ai' ? 'ai' : 'manual';
 
-                $this->audits[$group][$report->key] = [
-                    'id' => $report->id,
-                    'title' => $report->title,
-                    'count' => count($items),
-                    'items' => $items,
-                ];
+            // Only get first 5 items
+            $items = $report->items()
+                ->limit(5)
+                ->get()
+                ->map(fn($item) => [
+                    'id' => $item->id,
+                    'data' => $item->data,
+                    'reasoning' => $item->reasoning,
+                ])->toArray();
 
-                // Set default visible count to 5
-                $this->sectionLimits[$report->key] = 5;
-            });
+            $this->audits[$group][$report->key] = [
+                'id' => $report->id,
+                'title' => $report->title,
+                'count' => $report->items()->count(),
+                'items' => $items,
+            ];
+
+            $this->sectionLimits[$report->key] = 5;
+        }
     }
+
 
     public function toggleSection(string $key): void
     {
