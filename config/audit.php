@@ -88,7 +88,7 @@ return [
         'why' => 'Flags overbilling of recurring services like physical therapy, wound care, or rentals.',
     ],
 
-    'template_billing_detection' => [
+    'template_billing' => [
         'title' => 'Template Billing Detection (AI)',
         'description' => 'Detects repeated patterns of charges across many patients that suggest templated billing.',
         'why' => 'May indicate copy-paste abuse or blanket billing for all patients regardless of need.',
@@ -100,7 +100,7 @@ return [
         'why' => 'DME is commonly overbilled or provided unnecessarily to inflate profits.',
     ],
 
-    'suspicious_language_flags' => [
+    'suspicious_language' => [
         'title' => 'Suspicious Language in Descriptions (AI)',
         'description' => 'AI scans for language that may suggest unnecessary or questionable billing activity.',
         'why' => 'Certain terms like "deluxe", "urgent", or "extended use" may hint at marketing tactics or upcoding.',
