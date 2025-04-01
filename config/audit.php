@@ -82,7 +82,7 @@ return [
         'why' => 'Incorrect modifier use can lead to inflated reimbursement or improper claims.',
     ],
 
-    'unrealistic_billing_frequency' => [
+    'unrealistic_frequency' => [
         'title' => 'Unrealistic Billing Frequency (AI)',
         'description' => 'Detects unusually frequent billing patterns for the same service.',
         'why' => 'Flags overbilling of recurring services like physical therapy, wound care, or rentals.',
