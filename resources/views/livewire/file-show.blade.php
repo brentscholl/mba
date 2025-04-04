@@ -58,12 +58,12 @@
             @if ($file->status === 'done')
                 <div class="flex items-center space-x-2 text-green-500">
                     <x-svg.check-circle class="w-5 h-5 text-green-500"/>
-                    <span>AI Audit Complete</span>
+                    <span>Claimly Audit Complete</span>
                 </div>
             @elseif ($file->status === 'auditing-ai')
                 <div class="flex items-center space-x-2 text-primary-500">
                     <x-svg.spinner class="w-5 h-5 text-primary-500"/>
-                    <span>Running AI Audit...</span>
+                    <span>Running Claimly Audit...</span>
                 </div>
             @endif
         </div>
@@ -102,7 +102,7 @@
                         @click="setTab('ai')"
                         x-show="{{ json_encode(!empty($audits['ai']) || $file->status === 'auditing-ai') }}"
                     >
-                        AI Audits
+                        Claimly Audits
                     </button>
                 </div>
 
@@ -151,16 +151,16 @@
                         @if ($file->status === 'auditing-ai')
                             <div class="text-primary-500 text-sm flex items-center space-x-2">
                                 <x-svg.spinner class="w-4 h-4 text-primary-500"/>
-                                <span>AI audit is still processing...</span>
+                                <span>Claimly audit is still processing...</span>
                             </div>
                         @endif
                     @elseif ($file->status === 'auditing-ai')
                         <div class="text-primary-500 text-sm flex items-center space-x-2">
                             <x-svg.spinner class="w-4 h-4 text-primary-500"/>
-                            <span>AI audit is still processing...</span>
+                            <span>Claimly audit is still processing...</span>
                         </div>
                     @else
-                        <div class="text-gray-300 text-sm italic">No AI audit results found yet.</div>
+                        <div class="text-gray-300 text-sm italic">No Claimly audit results found yet.</div>
                     @endif
                 </div>
                     @endif
@@ -169,6 +169,6 @@
     </div>
         <div class="mt-6 flex space-x-4 justify-end w-full">
             <button wire:click="rerunManualAudit" class="text-xs text-gray-300 hover:text-gray-400">Rerun Manual Audit</button>
-            <button wire:click="rerunAIAudit" class="text-xs text-gray-300 hover:text-gray-400">Rerun AI Audit</button>
+            <button wire:click="rerunAIAudit" class="text-xs text-gray-300 hover:text-gray-400">Rerun Claimly Audit</button>
         </div>
 </div>

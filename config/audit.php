@@ -65,44 +65,44 @@ return [
 
     // AI-Based Audits
     'unrelated_procedure_codes' => [
-        'title' => 'Unrelated Procedure Codes (AI)',
-        'description' => 'Uses AI to find items billed that do not align with the overall service the patient likely received.',
+        'title' => 'Unrelated Procedure Codes',
+        'description' => 'Find items billed that do not align with the overall service the patient likely received.',
         'why' => 'Helps uncover out-of-place charges that may not belong with the rest of the treatment, signaling potential upcoding or bundling abuse.',
     ],
 
     'upcoding_detection' => [
-        'title' => 'Upcoding Detection (AI)',
-        'description' => 'AI identifies potential upcoding by analyzing the context of billed items.',
+        'title' => 'Upcoding Detection',
+        'description' => 'Identifies potential upcoding by analyzing the context of billed items.',
         'why' => 'Flags charges that may be inflated or misrepresented to increase reimbursement.',
     ],
 
     'modifier_misuse' => [
-        'title' => 'Modifier Misuse (AI)',
-        'description' => 'Detects potential misuse or overuse of billing modifiers using AI-based analysis.',
+        'title' => 'Modifier Misuse',
+        'description' => 'Detects potential misuse or overuse of billing modifiers.',
         'why' => 'Incorrect modifier use can lead to inflated reimbursement or improper claims.',
     ],
 
     'unrealistic_frequency' => [
-        'title' => 'Unrealistic Billing Frequency (AI)',
+        'title' => 'Unrealistic Billing Frequency',
         'description' => 'Detects unusually frequent billing patterns for the same service.',
         'why' => 'Flags overbilling of recurring services like physical therapy, wound care, or rentals.',
     ],
 
     'template_billing' => [
-        'title' => 'Template Billing Detection (AI)',
+        'title' => 'Template Billing Detection',
         'description' => 'Detects repeated patterns of charges across many patients that suggest templated billing.',
         'why' => 'May indicate copy-paste abuse or blanket billing for all patients regardless of need.',
     ],
 
     'excessive_dme_charges' => [
-        'title' => 'Excessive DME Charges (AI)',
-        'description' => 'AI flags unusually high or excessive use of Durable Medical Equipment (DME) codes.',
+        'title' => 'Excessive DME Charges',
+        'description' => 'Flags unusually high or excessive use of Durable Medical Equipment (DME) codes.',
         'why' => 'DME is commonly overbilled or provided unnecessarily to inflate profits.',
     ],
 
     'suspicious_language' => [
-        'title' => 'Suspicious Language in Descriptions (AI)',
-        'description' => 'AI scans for language that may suggest unnecessary or questionable billing activity.',
+        'title' => 'Suspicious Language in Descriptions',
+        'description' => 'Scans for language that may suggest unnecessary or questionable billing activity.',
         'why' => 'Certain terms like "deluxe", "urgent", or "extended use" may hint at marketing tactics or upcoding.',
     ],
 
